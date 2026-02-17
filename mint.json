@@ -1,0 +1,117 @@
+{
+  "$schema": "https://mintlify.com/schema",
+  "theme": "prism",
+  "favicon": "/16 x 16.ico",
+  "name": "Debita AI",
+  "description": "Debita AI - Plataforma de pagamentos brasileira com PIX, Boleto e soluções financeiras completas para empresas.",
+  "logo": {
+    "dark": "/logo.svg",
+    "light": "/logo.svg"
+  },
+  "colors": {
+    "primary": "#FF6B35",
+    "light": "#FFA366",
+    "dark": "#CC4400"
+  },
+  "openapi": "openapi.json",
+  "api": {
+    "baseUrl": "https://api.debita.ai",
+    "playground": {
+      "mode": "show"
+    }
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Suporte",
+        "href": "mailto:suporte@debita.ai"
+      },
+      {
+        "label": "Dashboard",
+        "href": "https://dashboard.debita.ai"
+      },
+      {
+        "label": "Comunidade",
+        "href": "https://discord.gg/debita"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Painel de Controle",
+      "href": "https://dashboard.debita.ai"
+    }
+  },
+  "tabs": [
+    {
+      "name": "API Reference",
+      "url": "api-reference",
+      "icon": "square-terminal"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Documentação",
+      "pages": [
+        "pages/introducao",
+        "pages/inicio-rapido",
+        "pages/dev-mode",
+        "pages/autenticacao/visao-geral",
+        "pages/webhooks/visao-geral",
+        "pages/indo-para-producao"
+      ]
+    },
+    {
+      "group": "PIX",
+      "pages": [
+        "documentation/pix-overview",
+        "documentation/pix-dynamic",
+        "documentation/pix-static",
+        "documentation/pix-simulate"
+      ]
+    },
+    {
+      "group": "Boleto",
+      "pages": [
+        "documentation/boleto-create",
+        "documentation/boleto-download"
+      ]
+    },
+    {
+      "group": "Clientes",
+      "pages": [
+        "documentation/customer-create"
+      ]
+    },
+    {
+      "group": "Cobranças",
+      "pages": [
+        "documentation/charge-status"
+      ]
+    },
+    {
+      "group": "Cupom",
+      "pages": [
+        "documentation/coupon-create"
+      ]
+    },
+    {
+      "group": "Saque",
+      "pages": [
+        "documentation/withdrawal-create"
+      ]
+    },
+    {
+      "group": "Merchant",
+      "pages": [
+        "documentation/merchant-info"
+      ]
+    }
+  ],
+  "footer": {
+    "socials": {
+      "x": "https://x.com/debitaai",
+      "github": "https://github.com/debita-ai",
+      "linkedin": "https://www.linkedin.com/company/debita-ai"
+    }
+  }
+}

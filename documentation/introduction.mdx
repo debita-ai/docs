@@ -1,0 +1,186 @@
+---
+title: "API Reference"
+description: "Referência rápida de todos os endpoints da API Debita AI organizados por recurso."
+---
+
+# API Reference
+
+Referência rápida de todos os endpoints disponíveis na API Debita AI. Para documentação detalhada com exemplos de implementação, acesse a aba **Documentation**.
+
+## 🔗 Base URL
+
+```
+https://api.debita.ai/v1
+```
+
+## 🔑 Autenticação
+
+Todos os endpoints (exceto públicos) requerem header Authorization:
+
+```http
+Authorization: Bearer pk_sandbox_sua_chave
+```
+
+## 📋 Cliente
+
+| Método | Endpoint | Descrição |
+|---------|----------|-----------|
+| `POST` | `/customers` | Criar um novo Cliente |
+| `GET` | `/customers` | Listar Clientes |
+| `GET` | `/customers/{id}` | Obter detalhes de um Cliente |
+| `PUT` | `/customers/{id}` | Atualizar Cliente |
+| `DELETE` | `/customers/{id}` | Excluir Cliente |
+
+## 💳 Cobrança
+
+| Método | Endpoint | Descrição |
+|---------|----------|-----------|
+| `POST` | `/charges` | Criar uma nova Cobrança |
+| `GET` | `/charges` | Listar Cobranças |
+| `GET` | `/charges/{id}` | Obter detalhes de uma Cobrança |
+| `PUT` | `/charges/{id}` | Atualizar Cobrança |
+| `POST` | `/charges/{id}/cancel` | Cancelar Cobrança |
+
+## 🔥 PIX QRCode
+
+| Método | Endpoint | Descrição |
+|---------|----------|-----------|
+| `POST` | `/pix/dynamic` | Criar QRCode PIX Dinâmico |
+| `POST` | `/pix/static` | Criar QRCode PIX Estático |
+| `POST` | `/pix/simulate-payment` | Simular Pagamento PIX (Sandbox) |
+| `GET` | `/pix/{id}/status` | Checar Status do PIX |
+| `GET` | `/pix/static/{id}/payments` | Listar Pagamentos PIX Estático |
+
+## 📄 Boleto
+
+| Método | Endpoint | Descrição |
+|---------|----------|-----------|
+| `POST` | `/boletos` | Criar novo Boleto |
+| `GET` | `/boletos/{id}` | Obter detalhes do Boleto |
+| `GET` | `/boletos/{id}/pdf` | Download PDF do Boleto |
+| `POST` | `/boletos/simulate-payment` | Simular Pagamento Boleto (Sandbox) |
+
+## 🎫 Cupom
+
+| Método | Endpoint | Descrição |
+|---------|----------|-----------|
+| `POST` | `/coupons` | Criar um novo Cupom |
+| `GET` | `/coupons` | Listar Cupons |
+| `GET` | `/coupons/{id}` | Obter detalhes do Cupom |
+| `PUT` | `/coupons/{id}` | Atualizar Cupom |
+| `DELETE` | `/coupons/{id}` | Excluir Cupom |
+| `POST` | `/coupons/{id}/apply` | Aplicar Cupom |
+
+## 💸 Saque
+
+| Método | Endpoint | Descrição |
+|---------|----------|-----------|
+| `POST` | `/withdrawals` | Criar um novo Saque |
+| `GET` | `/withdrawals/{id}` | Buscar Saque |
+| `GET` | `/withdrawals` | Listar Saques |
+| `POST` | `/withdrawals/{id}/cancel` | Cancelar Saque |
+
+## 🏪 Loja
+
+| Método | Endpoint | Descrição |
+|---------|----------|-----------|
+| `GET` | `/merchant` | Obter detalhes da Loja |
+| `PUT` | `/merchant` | Atualizar dados da Loja |
+| `GET` | `/merchant/balance` | Consultar Saldo |
+| `GET` | `/merchant/transactions` | Histórico de Transações |
+
+## 🔔 Webhooks
+
+| Método | Endpoint | Descrição |
+|---------|----------|-----------|
+| `POST` | `/webhooks` | Criar Webhook |
+| `GET` | `/webhooks` | Listar Webhooks |
+| `GET` | `/webhooks/{id}` | Obter Webhook |
+| `PUT` | `/webhooks/{id}` | Atualizar Webhook |
+| `DELETE` | `/webhooks/{id}` | Excluir Webhook |
+| `POST` | `/webhooks/{id}/test` | Testar Webhook |
+
+## 🌐 Endpoints Públicos
+
+| Método | Endpoint | Descrição |
+|---------|----------|-----------|
+| `GET` | `/public/boleto/{code}` | Visualizar Boleto (sem auth) |
+| `GET` | `/public/boleto/{code}/pdf` | Download PDF Boleto (sem auth) |
+| `GET` | `/public/payment-link/{slug}` | Acessar Link de Pagamento |
+
+## 📊 Relatórios
+
+| Método | Endpoint | Descrição |
+|---------|----------|-----------|
+| `GET` | `/reports/transactions` | Relatório de Transações |
+| `GET` | `/reports/revenue` | Relatório de Receita |
+| `GET` | `/reports/customers` | Relatório de Clientes |
+| `GET` | `/reports/export` | Exportar Dados |
+
+## ⚙️ Utilitários
+
+| Método | Endpoint | Descrição |
+|---------|----------|-----------|
+| `GET` | `/health` | Status da API |
+| `POST` | `/validate/document` | Validar CPF/CNPJ |
+| `POST` | `/validate/bank-account` | Validar Conta Bancária |
+| `GET` | `/banks` | Listar Bancos |
+
+## 📝 Códigos de Status HTTP
+
+| Código | Descrição |
+|--------|-----------|
+| `200` | OK - Sucesso |
+| `201` | Created - Recurso criado |
+| `400` | Bad Request - Dados inválidos |
+| `401` | Unauthorized - Chave API inválida |
+| `403` | Forbidden - Sem permissão |
+| `404` | Not Found - Recurso não encontrado |
+| `422` | Unprocessable Entity - Dados válidos mas não processáveis |
+| `429` | Too Many Requests - Rate limit atingido |
+| `500` | Internal Server Error - Erro interno |
+
+## 🔄 Formato Padrão de Resposta
+
+### Sucesso
+```json
+{
+  "success": true,
+  "data": {
+    // dados do recurso
+  },
+  "meta": {
+    "timestamp": "2024-01-15T10:00:00Z",
+    "api_version": "2024-01"
+  }
+}
+```
+
+### Erro
+```json
+{
+  "error": {
+    "type": "validation_error",
+    "code": "INVALID_AMOUNT",
+    "message": "Amount must be greater than 0",
+    "field": "amount"
+  },
+  "meta": {
+    "timestamp": "2024-01-15T10:00:00Z",
+    "request_id": "req_abc123"
+  }
+}
+```
+
+## 🚀 Rate Limits
+
+| Ambiente | Requests/min | Burst |
+|----------|--------------|-------|
+| Sandbox | 1,000 | 100 |
+| Production | 10,000 | 1,000 |
+
+---
+
+<Note>
+**Para implementações detalhadas**: Acesse a aba **Documentation** que contém guias completos com exemplos de código e melhores práticas.
+</Note>

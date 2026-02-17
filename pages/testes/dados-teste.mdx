@@ -1,0 +1,632 @@
+---
+title: "Dados de Teste Válidos"
+description: "CPFs, CNPJs, telefones e dados brasileiros válidos para testes em sandbox da Debita AI. Documentos que passam na validação."
+---
+
+# Dados de Teste Válidos
+
+Esta página lista dados brasileiros válidos para uso em ambiente de sandbox. Todos os documentos apresentados passam nas validações de dígitos verificadores e são seguros para teste.
+
+<Warning>
+**Importante**: Use estes dados APENAS em ambiente de sandbox (chaves `pk_sandbox_`). Em produção, use sempre dados reais dos clientes.
+</Warning>
+
+## 👤 CPF - Pessoa Física
+
+### CPFs Válidos para Teste
+
+<Tabs>
+  <Tab title="Formatados">
+    ```
+    111.444.777-35
+    123.456.789-09
+    000.000.001-91
+    999.999.999-87
+    111.222.333-96
+    555.444.333-23
+    987.654.321-00
+    147.258.369-27
+    ```
+  </Tab>
+
+  <Tab title="Apenas Números">
+    ```
+    11144477735
+    12345678909
+    00000000191
+    99999999987
+    11122233396
+    55544433323
+    98765432100
+    14725836927
+    ```
+  </Tab>
+</Tabs>
+
+### Como Usar CPFs de Teste
+
+```javascript
+// Exemplos de uso em requisições
+const clientesTeste = [
+  {
+    name: "João Silva Santos",
+    document: "111.444.777-35",
+    email: "joao.silva@teste.com",
+    phone: "+5511999999999"
+  },
+  {
+    name: "Maria Oliveira Costa",
+    document: "123.456.789-09",
+    email: "maria.oliveira@teste.com",
+    phone: "+5521987654321"
+  },
+  {
+    name: "Pedro Santos Lima",
+    document: "000.000.001-91",
+    email: "pedro.santos@teste.com",
+    phone: "+5531888777666"
+  },
+  {
+    name: "Ana Costa Ferreira",
+    document: "999.999.999-87",
+    email: "ana.costa@teste.com",
+    phone: "+5541777666555"
+  }
+];
+
+// Função para selecionar cliente aleatório
+function getRandomTestCustomer() {
+  return clientesTeste[Math.floor(Math.random() * clientesTeste.length)];
+}
+```
+
+## 🏢 CNPJ - Pessoa Jurídica
+
+### CNPJs Válidos para Teste
+
+<Tabs>
+  <Tab title="Formatados">
+    ```
+    11.222.333/0001-81
+    12.345.678/0001-95
+    00.000.000/0001-91
+    99.999.999/0001-99
+    11.444.777/0001-61
+    55.444.333/0001-23
+    98.765.432/0001-10
+    14.725.836/0001-27
+    ```
+  </Tab>
+
+  <Tab title="Apenas Números">
+    ```
+    11222333000181
+    12345678000195
+    00000000000191
+    99999999000199
+    11444777000161
+    55444333000123
+    98765432000110
+    14725836000127
+    ```
+  </Tab>
+</Tabs>
+
+### Empresas de Teste Completas
+
+```javascript
+const empresasTeste = [
+  {
+    name: "TechCorp Soluções Ltda",
+    document: "11.222.333/0001-81",
+    email: "financeiro@techcorp.teste.com",
+    phone: "+5511999888777",
+    address: {
+      street: "Av. Paulista, 1000",
+      neighborhood: "Bela Vista",
+      city: "São Paulo",
+      state: "SP",
+      zipcode: "01310-100"
+    }
+  },
+  {
+    name: "Inovação Digital EIRELI",
+    document: "12.345.678/0001-95",
+    email: "contato@inovacaodigital.teste.com",
+    phone: "+5521988777666",
+    address: {
+      street: "Rua do Catete, 200",
+      neighborhood: "Catete",
+      city: "Rio de Janeiro",
+      state: "RJ",
+      zipcode: "22220-000"
+    }
+  },
+  {
+    name: "Startup Brasileira S.A.",
+    document: "00.000.000/0001-91",
+    email: "admin@startup.teste.com",
+    phone: "+5531987654321",
+    address: {
+      street: "Rua da Bahia, 300",
+      neighborhood: "Centro",
+      city: "Belo Horizonte",
+      state: "MG",
+      zipcode: "30160-012"
+    }
+  },
+  {
+    name: "Comércio Exemplo ME",
+    document: "99.999.999/0001-99",
+    email: "vendas@exemplo.teste.com",
+    phone: "+5541876543210",
+    address: {
+      street: "Rua XV de Novembro, 400",
+      neighborhood: "Centro",
+      city: "Curitiba",
+      state: "PR",
+      zipcode: "80020-310"
+    }
+  }
+];
+
+// Função para empresa B2B aleatória
+function getRandomTestCompany() {
+  return empresasTeste[Math.floor(Math.random() * empresasTeste.length)];
+}
+```
+
+## 📱 Telefones Brasileiros Válidos
+
+### Por Região
+
+<Tabs>
+  <Tab title="Região Sudeste">
+    ```
+    +5511999999999  // São Paulo (SP)
+    +5511988888888  // São Paulo (SP)
+    +5512987654321  // Vale do Paraíba (SP)
+    +5521987654321  // Rio de Janeiro (RJ)
+    +5521876543210  // Rio de Janeiro (RJ)
+    +5531988777666  // Belo Horizonte (MG)
+    +5531877666555  // Belo Horizonte (MG)
+    +5527999888777  // Vitória (ES)
+    ```
+  </Tab>
+
+  <Tab title="Região Sul">
+    ```
+    +5541987654321  // Curitiba (PR)
+    +5541876543210  // Curitiba (PR)
+    +5548999888777  // Florianópolis (SC)
+    +5548988777666  // Florianópolis (SC)
+    +5551987654321  // Porto Alegre (RS)
+    +5551876543210  // Porto Alegre (RS)
+    ```
+  </Tab>
+
+  <Tab title="Região Nordeste">
+    ```
+    +5571999888777  // Salvador (BA)
+    +5571988777666  // Salvador (BA)
+    +5581987654321  // Recife (PE)
+    +5581876543210  // Recife (PE)
+    +5585999888777  // Fortaleza (CE)
+    +5585988777666  // Fortaleza (CE)
+    +5584987654321  // Natal (RN)
+    +5583876543210  // João Pessoa (PB)
+    ```
+  </Tab>
+
+  <Tab title="Outras Regiões">
+    ```
+    +5561999888777  // Brasília (DF)
+    +5561988777666  // Brasília (DF)
+    +5562987654321  // Goiânia (GO)
+    +5565876543210  // Cuiabá (MT)
+    +5567999888777  // Campo Grande (MS)
+    +5511987654321  // Santos (SP)
+    +5519988777666  // Campinas (SP)
+    ```
+  </Tab>
+</Tabs>
+
+### Validação de Formato
+
+```javascript
+// Função para validar telefone brasileiro
+function validarTelefone(telefone) {
+  // Remove caracteres não numéricos
+  const numero = telefone.replace(/\D/g, '');
+
+  // Padrões válidos:
+  // +5511999999999 (13 dígitos com código país)
+  // 11999999999 (11 dígitos sem código país)
+  // 1199999-9999 (formatado)
+
+  const patterns = [
+    /^55\d{2}9\d{8}$/, // +55 + DDD + 9 + 8 dígitos
+    /^\d{2}9\d{8}$/,   // DDD + 9 + 8 dígitos
+    /^55\d{2}\d{8}$/,  // +55 + DDD + 8 dígitos (fixo)
+    /^\d{2}\d{8}$/     // DDD + 8 dígitos (fixo)
+  ];
+
+  return patterns.some(pattern => pattern.test(numero));
+}
+
+// Formatador de telefone
+function formatarTelefone(telefone) {
+  const numero = telefone.replace(/\D/g, '');
+
+  if (numero.length === 13 && numero.startsWith('55')) {
+    // +55 11 99999-9999
+    return `+${numero.slice(0, 2)} ${numero.slice(2, 4)} ${numero.slice(4, 9)}-${numero.slice(9)}`;
+  } else if (numero.length === 11) {
+    // (11) 99999-9999
+    return `(${numero.slice(0, 2)}) ${numero.slice(2, 7)}-${numero.slice(7)}`;
+  }
+
+  return telefone;
+}
+```
+
+## 📮 CEPs e Endereços Válidos
+
+### CEPs por Estado
+
+<Tabs>
+  <Tab title="São Paulo (SP)">
+    ```
+    01310-100  // Av. Paulista, Bela Vista
+    04038-001  // Vila Olímpia
+    01419-001  // Consolação
+    03102-002  // Mooca
+    05508-900  // Butantã
+    08090-284  // Cidade Tiradentes
+    ```
+  </Tab>
+
+  <Tab title="Rio de Janeiro (RJ)">
+    ```
+    22071-900  // Copacabana
+    20040-020  // Centro
+    22640-102  // Barra da Tijuca
+    20211-340  // Maracanã
+    23020-470  // Campo Grande
+    ```
+  </Tab>
+
+  <Tab title="Belo Horizonte (MG)">
+    ```
+    30112-000  // Centro
+    30130-010  // Funcionários
+    31270-901  // Pampulha
+    30260-070  // Santo Antônio
+    ```
+  </Tab>
+
+  <Tab title="Outros Estados">
+    ```
+    70040-010  // Brasília, DF
+    80010-000  // Curitiba, PR
+    90010-150  // Porto Alegre, RS
+    88010-400  // Florianópolis, SC
+    40070-110  // Salvador, BA
+    ```
+  </Tab>
+</Tabs>
+
+### Endereços Completos para Teste
+
+```javascript
+const enderecosTeste = [
+  {
+    street: "Av. Paulista, 1000",
+    number: "1000",
+    complement: "Conjunto 101",
+    neighborhood: "Bela Vista",
+    city: "São Paulo",
+    state: "SP",
+    zipcode: "01310-100",
+    country: "BR"
+  },
+  {
+    street: "Rua do Catete, 200",
+    number: "200",
+    complement: "Apto 302",
+    neighborhood: "Catete",
+    city: "Rio de Janeiro",
+    state: "RJ",
+    zipcode: "22220-000",
+    country: "BR"
+  },
+  {
+    street: "Rua da Bahia, 300",
+    number: "300",
+    complement: "Sala 15",
+    neighborhood: "Centro",
+    city: "Belo Horizonte",
+    state: "MG",
+    zipcode: "30160-012",
+    country: "BR"
+  },
+  {
+    street: "Rua XV de Novembro, 400",
+    number: "400",
+    complement: "",
+    neighborhood: "Centro",
+    city: "Curitiba",
+    state: "PR",
+    zipcode: "80020-310",
+    country: "BR"
+  }
+];
+```
+
+## 💡 Geradores de Dados de Teste
+
+### Gerador de CPF Válido
+
+```javascript
+class CPFGenerator {
+  static generate() {
+    // Gera 9 primeiros dígitos aleatórios
+    const digits = Array.from({ length: 9 }, () =>
+      Math.floor(Math.random() * 10)
+    );
+
+    // Calcula primeiro dígito verificador
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      sum += digits[i] * (10 - i);
+    }
+    const firstDigit = (sum * 10) % 11;
+    digits.push(firstDigit >= 10 ? 0 : firstDigit);
+
+    // Calcula segundo dígito verificador
+    sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += digits[i] * (11 - i);
+    }
+    const secondDigit = (sum * 10) % 11;
+    digits.push(secondDigit >= 10 ? 0 : secondDigit);
+
+    return digits.join('');
+  }
+
+  static format(cpf) {
+    return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  }
+
+  static generateFormatted() {
+    return this.format(this.generate());
+  }
+}
+
+// Uso
+const cpfValido = CPFGenerator.generateFormatted();
+console.log(cpfValido); // Ex: 123.456.789-09
+```
+
+### Gerador de CNPJ Válido
+
+```javascript
+class CNPJGenerator {
+  static generate() {
+    // Gera 12 primeiros dígitos (8 + /0001)
+    const base = Array.from({ length: 8 }, () =>
+      Math.floor(Math.random() * 10)
+    );
+    base.push(0, 0, 0, 1); // Adiciona /0001
+
+    // Calcula primeiro dígito verificador
+    const weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+      sum += base[i] * weights1[i];
+    }
+    const firstDigit = sum % 11;
+    base.push(firstDigit < 2 ? 0 : 11 - firstDigit);
+
+    // Calcula segundo dígito verificador
+    const weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    sum = 0;
+    for (let i = 0; i < 13; i++) {
+      sum += base[i] * weights2[i];
+    }
+    const secondDigit = sum % 11;
+    base.push(secondDigit < 2 ? 0 : 11 - secondDigit);
+
+    return base.join('');
+  }
+
+  static format(cnpj) {
+    return cnpj.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
+  }
+
+  static generateFormatted() {
+    return this.format(this.generate());
+  }
+}
+
+// Uso
+const cnpjValido = CNPJGenerator.generateFormatted();
+console.log(cnpjValido); // Ex: 12.345.678/0001-95
+```
+
+### Factory de Clientes de Teste
+
+```javascript
+class TestCustomerFactory {
+  static createPF() {
+    const nomes = [
+      'João Silva', 'Maria Santos', 'Pedro Costa', 'Ana Oliveira',
+      'Carlos Ferreira', 'Lucia Lima', 'Roberto Alves', 'Patricia Rocha'
+    ];
+    const dominios = ['teste.com', 'exemplo.com', 'email.test'];
+
+    const nome = nomes[Math.floor(Math.random() * nomes.length)];
+    const dominio = dominios[Math.floor(Math.random() * dominios.length)];
+    const email = nome.toLowerCase().replace(' ', '.') + '@' + dominio;
+
+    return {
+      name: nome,
+      document: CPFGenerator.generateFormatted(),
+      email: email,
+      phone: this.generatePhone(),
+      type: 'individual'
+    };
+  }
+
+  static createPJ() {
+    const empresas = [
+      'TechCorp Soluções', 'Inovação Digital', 'Startup Brasileira',
+      'Comércio Exemplo', 'Serviços Modernos', 'Tecnologia Avançada'
+    ];
+    const sufixos = ['Ltda', 'EIRELI', 'S.A.', 'ME'];
+
+    const empresa = empresas[Math.floor(Math.random() * empresas.length)];
+    const sufixo = sufixos[Math.floor(Math.random() * sufixos.length)];
+    const nomeCompleto = `${empresa} ${sufixo}`;
+
+    return {
+      name: nomeCompleto,
+      document: CNPJGenerator.generateFormatted(),
+      email: `contato@${empresa.toLowerCase().replace(' ', '')}.teste.com`,
+      phone: this.generatePhone(),
+      type: 'business'
+    };
+  }
+
+  static generatePhone() {
+    const ddds = ['11', '21', '31', '41', '51', '61', '71', '81', '85'];
+    const ddd = ddds[Math.floor(Math.random() * ddds.length)];
+    const numero = '9' + Math.floor(Math.random() * 100000000).toString().padStart(8, '0');
+    return `+55${ddd}${numero}`;
+  }
+
+  static createBatch(count, type = 'mixed') {
+    const customers = [];
+
+    for (let i = 0; i < count; i++) {
+      if (type === 'pf' || (type === 'mixed' && Math.random() > 0.3)) {
+        customers.push(this.createPF());
+      } else {
+        customers.push(this.createPJ());
+      }
+    }
+
+    return customers;
+  }
+}
+
+// Uso
+const clientesPF = TestCustomerFactory.createBatch(5, 'pf');
+const clientesPJ = TestCustomerFactory.createBatch(3, 'pj');
+const clientesMistos = TestCustomerFactory.createBatch(10, 'mixed');
+```
+
+## 🧪 Cenários de Teste Específicos
+
+### Valores de Teste Específicos
+
+```javascript
+const cenariosTeste = {
+  // Valores pequenos
+  micropagamento: {
+    amount: 100, // R$ 1,00
+    description: 'Teste de micropagamento'
+  },
+
+  // Valores médios
+  compraComum: {
+    amount: 5000, // R$ 50,00
+    description: 'Compra comum de teste'
+  },
+
+  // Valores altos (PIX com fiador)
+  transacaoB2B: {
+    amount: 100000, // R$ 1.000,00
+    description: 'Transação B2B de teste',
+    guarantee_type: 'merchant_backed'
+  },
+
+  // Teste de expiração rápida
+  expiraRapido: {
+    amount: 2500, // R$ 25,00
+    description: 'Teste de expiração',
+    expires_at: new Date(Date.now() + 2 * 60 * 1000).toISOString() // 2 minutos
+  },
+
+  // Teste com metadata rica
+  metadataCompleta: {
+    amount: 7500, // R$ 75,00
+    description: 'Teste com metadata',
+    metadata: {
+      produto: 'teste',
+      categoria: 'eletrônicos',
+      vendedor: 'loja_teste',
+      campanha: 'black_friday',
+      utm_source: 'google',
+      utm_medium: 'cpc'
+    }
+  }
+};
+```
+
+### Dados para Diferentes Casos de Uso
+
+```javascript
+// E-commerce
+const dadosEcommerce = {
+  customer: TestCustomerFactory.createPF(),
+  amount: 15000, // R$ 150,00
+  description: 'Smartphone XYZ - Teste E-commerce',
+  external_id: `ecommerce_${Date.now()}`,
+  metadata: {
+    categoria: 'smartphones',
+    marca: 'TestBrand',
+    modelo: 'XYZ-123',
+    cor: 'preto'
+  }
+};
+
+// SaaS
+const dadosSaaS = {
+  customer: TestCustomerFactory.createPJ(),
+  amount: 29900, // R$ 299,00
+  description: 'Assinatura Mensal - Plano Pro',
+  external_id: `saas_${Date.now()}`,
+  metadata: {
+    tipo: 'assinatura',
+    plano: 'pro',
+    periodo: 'mensal',
+    renovacao: 'automatica'
+  }
+};
+
+// Marketplace
+const dadosMarketplace = {
+  customer: TestCustomerFactory.createPF(),
+  amount: 8500, // R$ 85,00
+  description: 'Compra Marketplace - Múltiplos Vendedores',
+  external_id: `marketplace_${Date.now()}`,
+  metadata: {
+    vendedor_1: 'loja_tech',
+    valor_vendedor_1: '5000',
+    vendedor_2: 'loja_casa',
+    valor_vendedor_2: '3000',
+    taxa_marketplace: '500'
+  }
+};
+```
+
+---
+
+<Info>
+**Lembre-se**: Todos estes dados são válidos apenas para ambiente de sandbox. Em produção, use sempre dados reais dos clientes. Os CPFs e CNPJs listados passam na validação matemática mas não representam pessoas ou empresas reais.
+</Info>
+
+<Tip>
+**Próximo Passo**: Use estes dados para testar cenários completos em nossa seção de [cenários de teste](/testes/cenarios).
+</Tip>

@@ -1,0 +1,550 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Debita AI API",
+    "description": "API completa para pagamentos PIX e Boleto no Brasil com liquidação instantânea",
+    "version": "1.0.0",
+    "contact": {
+      "email": "suporte@debita.ai",
+      "url": "https://debita.ai"
+    },
+    "license": {
+      "name": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.debita.ai",
+      "description": "Ambiente de Produção"
+    },
+    {
+      "url": "https://sandbox.debita.ai",
+      "description": "Sandbox para Desenvolvimento"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "API_KEY",
+        "description": "Use sua chave API no formato: Bearer pk_sandbox_sua_chave"
+      }
+    },
+    "schemas": {
+      "Customer": {
+        "type": "object",
+        "required": ["name", "document"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nome completo do cliente",
+            "example": "Maria Silva Santos"
+          },
+          "document": {
+            "type": "string",
+            "description": "CPF ou CNPJ do cliente",
+            "example": "123.456.789-09"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "E-mail do cliente",
+            "example": "maria.silva@email.com"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Telefone com código do país",
+            "example": "+5511987654321"
+          }
+        }
+      },
+      "PixDynamicResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "ID único da cobrança",
+            "example": "chg_1a2b3c4d5e6f"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "confirmed", "expired", "failed"],
+            "description": "Status atual da cobrança",
+            "example": "pending"
+          },
+          "amount": {
+            "type": "integer",
+            "description": "Valor em centavos",
+            "example": 25000
+          },
+          "currency": {
+            "type": "string",
+            "example": "BRL"
+          },
+          "description": {
+            "type": "string",
+            "example": "Compra de curso online"
+          },
+          "pix": {
+            "type": "object",
+            "properties": {
+              "qr_code": {
+                "type": "string",
+                "description": "QR Code em formato base64",
+                "example": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+              },
+              "payload": {
+                "type": "string",
+                "description": "String PIX para copy/paste no app bancário",
+                "example": "00020126580014br.gov.bcb.pix..."
+              },
+              "txid": {
+                "type": "string",
+                "description": "Transaction ID único do PIX",
+                "example": "E12345678202401011230123456789"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "Data/hora de expiração",
+                "example": "2024-01-01T15:30:00-03:00"
+              }
+            }
+          },
+          "customer": {
+            "$ref": "#/components/schemas/Customer"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2024-01-01T14:30:00-03:00"
+          }
+        }
+      },
+      "PixStaticResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "pix_static_7h8i9j0k"
+          },
+          "type": {
+            "type": "string",
+            "example": "pix_static"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["active", "inactive"],
+            "example": "active"
+          },
+          "description": {
+            "type": "string",
+            "example": "Doações para ONG Esperança"
+          },
+          "pix": {
+            "type": "object",
+            "properties": {
+              "qr_code": {
+                "type": "string",
+                "description": "QR Code reutilizável em base64"
+              },
+              "payload": {
+                "type": "string",
+                "description": "String PIX para apps bancários"
+              },
+              "key": {
+                "type": "string",
+                "description": "Chave PIX única gerada",
+                "example": "pix_static_7h8i9j0k@debita.ai"
+              }
+            }
+          },
+          "suggested_amounts": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "example": [1000, 2500, 5000, 10000]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "example": "validation_error"
+              },
+              "code": {
+                "type": "string",
+                "example": "INVALID_AMOUNT"
+              },
+              "message": {
+                "type": "string",
+                "example": "Amount must be greater than 0"
+              },
+              "field": {
+                "type": "string",
+                "example": "amount"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/v1/charges/pix/dynamic": {
+      "post": {
+        "summary": "Criar PIX Dinâmico",
+        "description": "Cria uma cobrança PIX com QR Code único, valor predefinido e expiração automática. Ideal para e-commerce e pagamentos únicos.",
+        "operationId": "createPixDynamic",
+        "tags": ["PIX"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Dados para criar o PIX dinâmico",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["amount", "description"],
+                "properties": {
+                  "amount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100000000,
+                    "description": "Valor em centavos (R$ 100,00 = 10000)",
+                    "example": 25000
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "description": "Descrição da cobrança",
+                    "example": "Compra de curso online - Módulo Avançado"
+                  },
+                  "customer": {
+                    "$ref": "#/components/schemas/Customer"
+                  },
+                  "expires_at": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Data de expiração (ISO 8601). Se não informado, expira em 30 minutos",
+                    "example": "2024-01-01T15:30:00-03:00"
+                  },
+                  "external_id": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "description": "ID externo para controle (opcional)",
+                    "example": "pedido_12345"
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Dados adicionais em formato chave-valor",
+                    "example": {
+                      "produto": "curso_avancado",
+                      "categoria": "educacao",
+                      "cupom": "DESCONTO10"
+                    }
+                  }
+                }
+              },
+              "examples": {
+                "basic": {
+                  "summary": "Exemplo básico",
+                  "value": {
+                    "amount": 10000,
+                    "description": "Pagamento de produto"
+                  }
+                },
+                "complete": {
+                  "summary": "Exemplo completo",
+                  "value": {
+                    "amount": 25000,
+                    "description": "Compra de curso online - Módulo Avançado",
+                    "customer": {
+                      "name": "Maria Silva Santos",
+                      "document": "123.456.789-09",
+                      "email": "maria.silva@email.com",
+                      "phone": "+5511987654321"
+                    },
+                    "expires_at": "2024-01-01T15:30:00-03:00",
+                    "external_id": "pedido_12345",
+                    "metadata": {
+                      "produto": "curso_avancado",
+                      "categoria": "educacao"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "PIX Dinâmico criado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PixDynamicResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Resposta de sucesso",
+                    "value": {
+                      "id": "chg_1a2b3c4d5e6f",
+                      "status": "pending",
+                      "amount": 25000,
+                      "currency": "BRL",
+                      "description": "Compra de curso online - Módulo Avançado",
+                      "pix": {
+                        "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+                        "payload": "00020126580014br.gov.bcb.pix2536merchant.debita.ai/pix/...",
+                        "txid": "E12345678202401011230123456789",
+                        "expires_at": "2024-01-01T15:30:00-03:00"
+                      },
+                      "customer": {
+                        "id": "cust_9z8y7x6w",
+                        "name": "Maria Silva Santos",
+                        "document": "123.456.789-09",
+                        "email": "maria.silva@email.com"
+                      },
+                      "created_at": "2024-01-01T14:30:00-03:00"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados de entrada inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "examples": {
+                  "invalid_amount": {
+                    "summary": "Valor inválido",
+                    "value": {
+                      "error": {
+                        "type": "validation_error",
+                        "code": "INVALID_AMOUNT",
+                        "message": "Amount must be greater than 0",
+                        "field": "amount"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chave API inválida ou ausente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Dados válidos mas não processáveis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/charges/pix/static": {
+      "post": {
+        "summary": "Criar PIX Estático",
+        "description": "Cria um QR Code PIX reutilizável onde o cliente informa o valor. Ideal para vendas físicas, doações e situações onde o valor não é conhecido antecipadamente.",
+        "operationId": "createPixStatic",
+        "tags": ["PIX"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Dados para criar o PIX estático",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["description"],
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "description": "Descrição que aparece no QR Code",
+                    "example": "Doações para ONG Esperança"
+                  },
+                  "merchant": {
+                    "type": "object",
+                    "description": "Dados do estabelecimento (opcional)",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "description": "Nome do estabelecimento",
+                        "example": "ONG Esperança"
+                      },
+                      "city": {
+                        "type": "string",
+                        "description": "Cidade do estabelecimento",
+                        "example": "São Paulo"
+                      },
+                      "document": {
+                        "type": "string",
+                        "description": "CNPJ do estabelecimento",
+                        "example": "12.345.678/0001-95"
+                      }
+                    }
+                  },
+                  "identifier": {
+                    "type": "string",
+                    "maxLength": 255,
+                    "description": "Identificador único para rastreamento",
+                    "example": "doacoes_esperanca_2024"
+                  },
+                  "suggested_amounts": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "maxItems": 10,
+                    "description": "Lista de valores sugeridos em centavos",
+                    "example": [1000, 2500, 5000, 10000]
+                  },
+                  "min_amount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Valor mínimo aceito em centavos",
+                    "example": 500
+                  },
+                  "max_amount": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Valor máximo aceito em centavos",
+                    "example": 50000
+                  },
+                  "metadata": {
+                    "type": "object",
+                    "description": "Dados adicionais em formato chave-valor",
+                    "example": {
+                      "categoria": "doacao",
+                      "campanha": "natal_2024"
+                    }
+                  }
+                }
+              },
+              "examples": {
+                "basic": {
+                  "summary": "Exemplo básico",
+                  "value": {
+                    "description": "Pagamentos para Loja ABC"
+                  }
+                },
+                "donation": {
+                  "summary": "Sistema de doações",
+                  "value": {
+                    "description": "Doações para ONG Esperança",
+                    "merchant": {
+                      "name": "ONG Esperança",
+                      "city": "São Paulo",
+                      "document": "12.345.678/0001-95"
+                    },
+                    "identifier": "doacoes_esperanca_2024",
+                    "suggested_amounts": [1000, 2500, 5000, 10000],
+                    "min_amount": 500,
+                    "max_amount": 50000,
+                    "metadata": {
+                      "categoria": "doacao",
+                      "campanha": "natal_2024"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "PIX Estático criado com sucesso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PixStaticResponse"
+                },
+                "examples": {
+                  "success": {
+                    "summary": "Resposta de sucesso",
+                    "value": {
+                      "id": "pix_static_7h8i9j0k",
+                      "type": "pix_static",
+                      "status": "active",
+                      "description": "Doações para ONG Esperança",
+                      "pix": {
+                        "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+                        "payload": "00020126580014br.gov.bcb.pix2536merchant.debita.ai/static/...",
+                        "key": "pix_static_7h8i9j0k@debita.ai"
+                      },
+                      "suggested_amounts": [1000, 2500, 5000, 10000],
+                      "created_at": "2024-01-01T10:00:00-03:00"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados de entrada inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Chave API inválida ou ausente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

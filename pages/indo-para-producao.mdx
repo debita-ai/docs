@@ -1,0 +1,352 @@
+---
+title: "Indo para Produção"
+description: "Guia completo para migrar do ambiente de desenvolvimento para produção com segurança e conformidade."
+---
+
+# Indo para Produção
+
+Quando sua integração estiver funcionando perfeitamente no sandbox, é hora de migrar para produção. Este processo envolve verificações de segurança, conformidade e configurações específicas para processar transações reais.
+
+<Warning>
+**Transações reais**: Em produção, todas as transações processam dinheiro real e são irreversíveis. Teste exaustivamente no sandbox antes de migrar.
+</Warning>
+
+## ✅ Checklist Pré-Produção
+
+### 1. Testes Completos no Sandbox
+- [ ] Todos os fluxos de pagamento testados
+- [ ] Webhooks funcionando corretamente
+- [ ] Tratamento de erros implementado
+- [ ] Timeouts e retry logic configurados
+- [ ] Testes de carga realizados
+
+### 2. Segurança
+- [ ] Chaves API armazenadas com segurança
+- [ ] HTTPS obrigatório em todos endpoints
+- [ ] Validação de assinatura de webhooks
+- [ ] Logs de auditoria implementados
+- [ ] Backup de dados críticos
+
+### 3. Compliance
+- [ ] Documentação LGPD implementada
+- [ ] Política de privacidade atualizada
+- [ ] Termos de uso incluem processamento de pagamentos
+- [ ] Processo KYC/AML implementado (se aplicável)
+
+## 🔑 Processo de Ativação
+
+### Passo 1: Verificação da Conta
+
+Acesse o [Dashboard Debita](https://dashboard.debita.ai) e complete:
+
+#### Documentos Empresariais
+- **CNPJ** válido e ativo na Receita Federal
+- **Contrato Social** ou documentos de constituição
+- **Comprovante de endereço** empresarial atualizado
+- **Inscrição Municipal/Estadual** (se aplicável)
+
+#### Dados dos Representantes
+- **CPF e RG** dos sócios/representantes
+- **Comprovante de residência** dos representantes
+- **Procuração** (se aplicável)
+
+#### Informações Bancárias
+- **Conta bancária** para liquidação
+- **Comprovante de conta** (extrato ou cartão CNPJ)
+
+### Passo 2: Análise de Risco
+
+Nosso time de compliance analisará:
+
+- **Atividade da empresa**: Setor, faturamento, histórico
+- **Produtos/Serviços**: Descrição detalhada do negócio
+- **Volume esperado**: Ticket médio e volume mensal
+- **Histórico**: Experiência com outros processadores
+
+**Tempo médio**: 3-5 dias úteis
+
+### Passo 3: Configuração de Produção
+
+Após aprovação:
+
+1. **Chaves de Produção** liberadas no dashboard
+2. **Limites iniciais** configurados baseados na análise
+3. **Webhooks de produção** configurados
+4. **Configurações de liquidação** definidas
+
+## 🔐 Chaves de Produção
+
+### Tipos de Chave
+
+#### Chaves Live (pk_live_)
+```bash
+# Exemplo
+pk_live_1a2b3c4d5e6f7g8h9i0j
+```
+- Para ambiente de **produção**
+- Processam transações reais
+- Rate limits mais altos
+- Suporte prioritário
+
+#### Chaves Test (pk_test_)
+```bash
+# Exemplo
+pk_test_9z8y7x6w5v4u3t2s1r0q
+```
+- Para ambiente de **homologação**
+- Transações simuladas com dados reais
+- Testes finais antes do go-live
+
+### Configuração Segura
+
+```javascript
+// ❌ NUNCA faça isso
+const apiKey = 'pk_live_1a2b3c4d5e6f7g8h9i0j';
+
+// ✅ Use variáveis de ambiente
+const apiKey = process.env.DEBITA_API_KEY;
+
+// ✅ Ainda melhor: use um secret manager
+const apiKey = await secretManager.getSecret('debita-api-key');
+```
+
+### Rotação de Chaves
+- Rotacione chaves a cada 90 dias
+- Use múltiplas chaves para zero-downtime
+- Monitore uso de chaves antigas
+
+## 🌐 Configurações de Produção
+
+### Base URL
+```javascript
+// Sandbox
+const baseUrl = 'https://sandbox.debita.ai';
+
+// Produção
+const baseUrl = 'https://api.debita.ai';
+```
+
+### Webhooks de Produção
+```bash
+# Configure URLs HTTPS com certificado válido
+curl -X POST https://api.debita.ai/v1/webhooks \
+  -H "Authorization: Bearer pk_live_sua_chave" \
+  -d '{
+    "url": "https://sua-api.com/webhook/debita",
+    "events": ["pix.payment.confirmed"],
+    "secret": "webhook-secret-super-seguro"
+  }'
+```
+
+### Rate Limits de Produção
+
+| Endpoint | Limite |
+|----------|--------|
+| PIX Dinâmico | 1.000/min |
+| PIX Estático | 500/min |
+| Boletos | 300/min |
+| Consultas | 2.000/min |
+| Webhooks | 100/min |
+
+## 💰 Liquidação e Tarifas
+
+### Cronograma de Liquidação
+
+#### PIX
+- **D+0**: Liquidação instantânea (opcional)
+- **D+1**: Liquidação padrão
+- **Horários**: 24/7 para PIX
+
+#### Boletos
+- **D+1**: Após confirmação bancária
+- **D+2**: Para bancos menores
+- **Horários**: Dias úteis após 14h
+
+### Estrutura de Tarifas
+
+```javascript
+// Exemplo de cálculo de tarifa
+const transactionAmount = 10000; // R$ 100,00
+const pixFee = 149; // R$ 1,49
+
+const netAmount = transactionAmount - pixFee;
+// Net: R$ 98,51 liquidado na conta
+```
+
+### Antecipação (opcional)
+- **Taxa**: 2,5% a.m.
+- **Prazo**: Até D-30
+- **Limite**: 80% do volume mensal
+
+## 🚨 Monitoramento e Alertas
+
+### Métricas Críticas
+
+```javascript
+// Configure alertas para:
+const alerts = {
+  errorRate: '> 5%',        // Taxa de erro alta
+  responseTime: '> 3s',     // Latência alta
+  failedWebhooks: '> 10',   // Webhooks falhando
+  unusualVolume: '2x avg',  // Volume anormal
+  chargebacks: '> 1%'       // Taxa de chargeback
+};
+```
+
+### Health Checks
+
+```bash
+# Endpoint de status
+curl https://api.debita.ai/health
+
+# Response esperada
+{
+  "status": "ok",
+  "services": {
+    "api": "healthy",
+    "database": "healthy",
+    "payments": "healthy"
+  }
+}
+```
+
+### Logs de Auditoria
+
+```javascript
+// Implemente logs estruturados
+const auditLog = {
+  timestamp: new Date().toISOString(),
+  action: 'payment_created',
+  user_id: 'user_123',
+  resource_id: 'chg_abc123',
+  ip_address: req.ip,
+  user_agent: req.headers['user-agent']
+};
+
+logger.audit(auditLog);
+```
+
+## 🔒 Segurança em Produção
+
+### Validação de Webhooks
+
+```javascript
+const crypto = require('crypto');
+
+function validateWebhook(payload, signature, secret) {
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(payload)
+    .digest('hex');
+
+  return signature === `sha256=${expectedSignature}`;
+}
+
+// Use sempre esta validação em produção
+if (!validateWebhook(req.body, req.headers['x-debita-signature'], webhookSecret)) {
+  return res.status(401).send('Invalid signature');
+}
+```
+
+### Rate Limiting
+
+```javascript
+const rateLimit = require('express-rate-limit');
+
+// Configure rate limiting por IP
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 1000, // máximo 1000 requests por IP
+  message: 'Too many requests from this IP'
+});
+
+app.use('/api/', apiLimiter);
+```
+
+### Timeout e Retry
+
+```javascript
+const axios = require('axios');
+
+const apiClient = axios.create({
+  timeout: 30000, // 30 segundos
+  retry: 3,
+  retryDelay: (retryCount) => {
+    return retryCount * 1000; // 1s, 2s, 3s
+  }
+});
+```
+
+## 📊 Métricas de Sucesso
+
+### KPIs de Pagamentos
+- **Taxa de conversão**: % de pagamentos aprovados
+- **Tempo médio**: Tempo para confirmação
+- **Taxa de abandono**: % de PIX não pagos
+- **Chargeback rate**: < 1% para categoria baixo risco
+
+### Performance
+- **Latência P95**: < 2 segundos
+- **Disponibilidade**: > 99.9%
+- **Taxa de erro**: < 0.1%
+
+## 🆘 Suporte e Escalação
+
+### Canais de Suporte
+
+#### Produção (24/7)
+- **Email**: suporte@debita.ai
+- **Slack**: Canal dedicado (enterprise)
+- **Telefone**: +55 11 4000-1234
+- **SLA**: 2h para issues críticos
+
+#### Desenvolvimento
+- **Discord**: [discord.gg/debita](https://discord.gg/debita)
+- **Docs**: Esta documentação
+- **GitHub**: Issues e feature requests
+
+### Escalação de Incidentes
+
+```
+Severidade 1 (Crítico): Sistema down, perda de receita
+├── Resposta: 15 minutos
+├── Resolução: 4 horas
+└── Comunicação: A cada 30min
+
+Severidade 2 (Alto): Funcionalidade degradada
+├── Resposta: 2 horas
+├── Resolução: 24 horas
+└── Comunicação: A cada 4h
+
+Severidade 3 (Médio): Bug não crítico
+├── Resposta: 24 horas
+├── Resolução: 72 horas
+└── Comunicação: Diária
+```
+
+## 🎯 Go-Live Recomendado
+
+### Estratégia de Roll-out
+
+#### Fase 1: Soft Launch (Semana 1)
+- 10% do tráfego para Debita
+- Monitoramento intensivo
+- Validação de métricas
+
+#### Fase 2: Ramp Up (Semana 2-3)
+- Aumento gradual para 50%
+- Otimização baseada em dados
+- Treinamento da equipe
+
+#### Fase 3: Full Production (Semana 4+)
+- 100% do tráfego
+- Monitoramento de rotina
+- Otimização contínua
+
+<Card title="SDKs Oficiais" icon="code" href="/sdks">
+  Use nossos SDKs para implementação mais rápida e segura
+</Card>
+
+<Note>
+**Precisa de ajuda?** Nossa equipe técnica está disponível para auxiliar na migração. Entre em contato via [suporte@debita.ai](mailto:suporte@debita.ai).
+</Note>

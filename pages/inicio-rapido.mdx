@@ -1,0 +1,413 @@
+---
+title: "Guia de Início Rápido"
+description: "Crie sua primeira cobrança PIX com a Debita AI em 5 minutos. Guia passo a passo com exemplos práticos."
+---
+
+# Guia de Início Rápido
+
+Siga este guia para integrar a Debita AI em sua aplicação e criar sua primeira cobrança PIX em menos de 5 minutos.
+
+## 🎯 O que você vai fazer
+
+1. Criar uma conta no painel Debita AI
+2. Obter sua chave de sandbox
+3. Criar sua primeira cobrança PIX
+4. Configurar um webhook básico
+5. Testar um pagamento
+
+## 📝 Passo 1: Criar Conta e Obter Chaves
+
+1. **Acesse o painel**: [dashboard.debita.ai](https://dashboard.debita.ai)
+2. **Crie sua conta** usando Google OAuth
+3. **Copie sua chave de sandbox** que começa com `pk_sandbox_`
+
+<Warning>
+Nunca use chaves de produção (`pk_live_`) durante desenvolvimento. A API detecta automaticamente o ambiente baseado no prefixo da chave.
+</Warning>
+
+## 💻 Passo 2: Instalar e Configurar
+
+### Node.js
+```bash
+npm install axios uuid
+```
+
+### Python
+```bash
+pip install requests
+```
+
+### PHP
+```bash
+# Usando Composer (opcional)
+composer require guzzlehttp/guzzle
+```
+
+## 🚀 Passo 3: Criar Primeira Cobrança PIX
+
+### Node.js
+```javascript
+const axios = require('axios');
+const { v4: uuidv4 } = require('uuid');
+
+const DEBITA_API_KEY = 'pk_sandbox_sua_chave_aqui';
+const BASE_URL = 'https://api.debita.ai/v1';
+
+async function criarCobrancaPix() {
+  try {
+    const response = await axios.post(`${BASE_URL}/charges/pix/dynamic`, {
+      amount: 10000, // R$ 100,00 em centavos
+      description: 'Pagamento de produto - Teste',
+      customer: {
+        name: 'João Silva',
+        document: '111.444.777-35', // CPF válido para testes
+        email: 'joao.silva@email.com',
+        phone: '+5511999999999'
+      },
+      expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutos
+    }, {
+      headers: {
+        'Authorization': `Bearer ${DEBITA_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': uuidv4()
+      }
+    });
+
+    console.log('Cobrança criada:', response.data);
+    console.log('QR Code PIX:', response.data.pix_qr_code);
+    console.log('Payload PIX:', response.data.pix_payload);
+
+    return response.data;
+  } catch (error) {
+    console.error('Erro:', error.response?.data || error.message);
+  }
+}
+
+criarCobrancaPix();
+```
+
+### Python
+```python
+import requests
+import uuid
+from datetime import datetime, timedelta
+
+DEBITA_API_KEY = 'pk_sandbox_sua_chave_aqui'
+BASE_URL = 'https://api.debita.ai/v1'
+
+def criar_cobranca_pix():
+    url = f"{BASE_URL}/charges/pix/dynamic"
+
+    # Data de expiração: 30 minutos a partir de agora
+    expires_at = (datetime.now() + timedelta(minutes=30)).isoformat() + 'Z'
+
+    payload = {
+        "amount": 10000,  # R$ 100,00 em centavos
+        "description": "Pagamento de produto - Teste",
+        "customer": {
+            "name": "João Silva",
+            "document": "111.444.777-35",  # CPF válido para testes
+            "email": "joao.silva@email.com",
+            "phone": "+5511999999999"
+        },
+        "expires_at": expires_at
+    }
+
+    headers = {
+        'Authorization': f'Bearer {DEBITA_API_KEY}',
+        'Content-Type': 'application/json',
+        'Idempotency-Key': str(uuid.uuid4())
+    }
+
+    try:
+        response = requests.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+
+        data = response.json()
+        print(f"Cobrança criada: {data}")
+        print(f"QR Code PIX: {data['pix_qr_code']}")
+        print(f"Payload PIX: {data['pix_payload']}")
+
+        return data
+    except requests.exceptions.RequestException as error:
+        print(f"Erro: {error}")
+        if hasattr(error, 'response') and error.response is not None:
+            print(f"Detalhes: {error.response.text}")
+
+criar_cobranca_pix()
+```
+
+### PHP
+```php
+<?php
+function criarCobrancaPix() {
+    $DEBITA_API_KEY = 'pk_sandbox_sua_chave_aqui';
+    $BASE_URL = 'https://api.debita.ai/v1';
+
+    // Data de expiração: 30 minutos a partir de agora
+    $expiresAt = date('c', strtotime('+30 minutes'));
+
+    $payload = [
+        'amount' => 10000, // R$ 100,00 em centavos
+        'description' => 'Pagamento de produto - Teste',
+        'customer' => [
+            'name' => 'João Silva',
+            'document' => '111.444.777-35', // CPF válido para testes
+            'email' => 'joao.silva@email.com',
+            'phone' => '+5511999999999'
+        ],
+        'expires_at' => $expiresAt
+    ];
+
+    $headers = [
+        'Authorization: Bearer ' . $DEBITA_API_KEY,
+        'Content-Type: application/json',
+        'Idempotency-Key: ' . uniqid()
+    ];
+
+    $ch = curl_init();
+    curl_setopt_array($ch, [
+        CURLOPT_URL => $BASE_URL . '/charges/pix/dynamic',
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($payload),
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_SSL_VERIFYPEER => true
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode === 200 || $httpCode === 201) {
+        $data = json_decode($response, true);
+        echo "Cobrança criada: " . print_r($data, true) . "\n";
+        echo "QR Code PIX: " . $data['pix_qr_code'] . "\n";
+        echo "Payload PIX: " . $data['pix_payload'] . "\n";
+        return $data;
+    } else {
+        echo "Erro HTTP $httpCode: $response\n";
+    }
+}
+
+criarCobrancaPix();
+?>
+```
+
+### cURL
+```bash
+curl -X POST "https://api.debita.ai/v1/charges/pix/dynamic" \
+  -H "Authorization: Bearer pk_sandbox_sua_chave_aqui" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+    "amount": 10000,
+    "description": "Pagamento de produto - Teste",
+    "customer": {
+      "name": "João Silva",
+      "document": "111.444.777-35",
+      "email": "joao.silva@email.com",
+      "phone": "+5511999999999"
+    },
+    "expires_at": "'$(date -d '+30 minutes' --iso-8601=seconds)'"
+  }'
+```
+
+## 📡 Passo 4: Configurar Webhook Básico
+
+Crie um endpoint para receber notificações de pagamento:
+
+### Node.js (Express)
+```javascript
+const express = require('express');
+const crypto = require('crypto');
+
+const app = express();
+app.use(express.raw({ type: 'application/json' }));
+
+// Chave secreta do webhook (obtida no painel)
+const WEBHOOK_SECRET = 'wh_sec_sua_chave_aqui';
+
+function validarAssinatura(payload, signature, secret) {
+  const hmac = crypto.createHmac('sha256', secret);
+  hmac.update(payload, 'utf8');
+  const calculatedSignature = `sha256=${hmac.digest('hex')}`;
+  return crypto.timingSafeEqual(
+    Buffer.from(calculatedSignature),
+    Buffer.from(signature)
+  );
+}
+
+app.post('/webhooks/debita', (req, res) => {
+  const signature = req.headers['x-debita-signature'];
+  const payload = req.body;
+
+  // Validar assinatura
+  if (!validarAssinatura(payload, signature, WEBHOOK_SECRET)) {
+    return res.status(401).send('Assinatura inválida');
+  }
+
+  const event = JSON.parse(payload);
+
+  console.log('Webhook recebido:', event);
+
+  // Processar evento
+  switch (event.event) {
+    case 'payment.confirmed':
+      console.log(`Pagamento confirmado: ${event.data.id}`);
+      console.log(`Valor: R$ ${(event.data.amount / 100).toFixed(2)}`);
+      break;
+    case 'payment.failed':
+      console.log(`Pagamento falhou: ${event.data.id}`);
+      break;
+    case 'payment.expired':
+      console.log(`Pagamento expirou: ${event.data.id}`);
+      break;
+  }
+
+  res.status(200).send('OK');
+});
+
+app.listen(3000, () => {
+  console.log('Servidor webhook rodando na porta 3000');
+});
+```
+
+### Python (Flask)
+```python
+import hmac
+import hashlib
+import json
+from flask import Flask, request
+
+app = Flask(__name__)
+
+# Chave secreta do webhook (obtida no painel)
+WEBHOOK_SECRET = 'wh_sec_sua_chave_aqui'
+
+def validar_assinatura(payload, signature, secret):
+    calculated_signature = 'sha256=' + hmac.new(
+        secret.encode('utf-8'),
+        payload,
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(calculated_signature, signature)
+
+@app.route('/webhooks/debita', methods=['POST'])
+def webhook():
+    signature = request.headers.get('X-Debita-Signature')
+    payload = request.get_data()
+
+    # Validar assinatura
+    if not validar_assinatura(payload, signature, WEBHOOK_SECRET):
+        return 'Assinatura inválida', 401
+
+    event = json.loads(payload)
+    print(f"Webhook recebido: {event}")
+
+    # Processar evento
+    if event['event'] == 'payment.confirmed':
+        print(f"Pagamento confirmado: {event['data']['id']}")
+        print(f"Valor: R$ {event['data']['amount'] / 100:.2f}")
+    elif event['event'] == 'payment.failed':
+        print(f"Pagamento falhou: {event['data']['id']}")
+    elif event['event'] == 'payment.expired':
+        print(f"Pagamento expirou: {event['data']['id']}")
+
+    return 'OK', 200
+
+if __name__ == '__main__':
+    app.run(port=3000)
+```
+
+## 📱 Passo 5: Testar Pagamento
+
+1. **Execute o código** do Passo 3 para criar uma cobrança
+2. **Copie o QR Code** ou payload PIX retornado
+3. **Use o app do seu banco** para escanear o QR Code
+4. **Confirme o pagamento** (em sandbox, use dados fictícios)
+5. **Verifique o webhook** - você deve receber um evento `payment.confirmed`
+
+## 📊 Resposta da API
+
+Quando você criar uma cobrança PIX, receberá uma resposta similar a esta:
+
+```json
+{
+  "id": "chg_abc123def456",
+  "status": "pending",
+  "amount": 10000,
+  "currency": "BRL",
+  "description": "Pagamento de produto - Teste",
+  "method": "pix",
+  "customer": {
+    "id": "cust_123456",
+    "name": "João Silva",
+    "document": "111.444.777-35",
+    "email": "joao.silva@email.com",
+    "phone": "+5511999999999"
+  },
+  "pix": {
+    "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "payload": "00020126580014br.gov.bcb.pix...",
+    "expires_at": "2024-01-01T13:30:00-03:00",
+    "txid": "E12345678202401011230123456789"
+  },
+  "created_at": "2024-01-01T13:00:00-03:00",
+  "updated_at": "2024-01-01T13:00:00-03:00"
+}
+```
+
+## 🎉 Próximos Passos
+
+Parabéns! Você criou sua primeira cobrança PIX. Agora você pode:
+
+<CardGroup cols={2}>
+  <Card title="Explorar PIX" icon="bolt" href="/metodos-pagamento/pix/dinamico">
+    Aprenda sobre PIX estático, com fiador e recorrente
+  </Card>
+  <Card title="Configurar Boleto" icon="receipt" href="/metodos-pagamento/boleto/tradicional">
+    Integre boletos bancários em sua aplicação
+  </Card>
+  <Card title="Webhooks Avançados" icon="webhook" href="/webhooks/configuracao">
+    Configure retry, filtragem e validação de eventos
+  </Card>
+  <Card title="Dados de Teste" icon="flask" href="/testes/dados-teste">
+    CPF, CNPJ e dados válidos para testes
+  </Card>
+</CardGroup>
+
+## 🔍 Dicas de Desenvolvimento
+
+<Tip>
+**Idempotência**: Sempre use `Idempotency-Key` para evitar cobranças duplicadas. Use UUIDs únicos para cada tentativa.
+</Tip>
+
+<Warning>
+**Rate Limiting**: Sandbox: 50.000 requests, Test: 10.000 requests, Live: 1.000 requests. Implemente retry com backoff exponencial.
+</Warning>
+
+<Info>
+**Valores**: Sempre envie valores em centavos. R$ 100,00 = 10000 centavos.
+</Info>
+
+## ❓ Problemas Comuns
+
+### Erro 401 - Unauthorized
+- Verifique se sua chave API está correta
+- Confirme que está usando `Bearer` no header Authorization
+
+### Erro 400 - Invalid CPF
+- Use CPFs válidos para teste: `111.444.777-35`, `123.456.789-09`
+- A API valida algoritmo de dígitos verificadores
+
+### Webhook não recebe eventos
+- Confirme que a URL é acessível publicamente
+- Verifique se está validando a assinatura HMAC corretamente
+- Use ngrok para testes locais: `ngrok http 3000`
+
+---
+
+<Note>
+**Suporte**: Se tiver dúvidas, entre em contato pelo [Discord](https://discord.gg/debita) ou email [suporte@debita.ai](mailto:suporte@debita.ai)
+</Note>

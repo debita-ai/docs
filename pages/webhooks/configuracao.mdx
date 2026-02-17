@@ -1,0 +1,673 @@
+---
+title: "Configuração de Webhooks"
+description: "Guia completo para configurar, registrar e gerenciar webhooks da Debita AI com exemplos práticos de implementação."
+---
+
+# Configuração de Webhooks
+
+Este guia apresenta o passo a passo completo para configurar webhooks em sua aplicação, desde o registro inicial até implementações avançadas com retry e failover.
+
+## 🎯 Fluxo de Configuração
+
+```mermaid
+graph TD
+    A[1. Criar endpoint webhook] --> B[2. Implementar validação HMAC]
+    B --> C[3. Registrar webhook via API]
+    C --> D[4. Testar recebimento]
+    D --> E[5. Monitorar e otimizar]
+```
+
+## 📝 Passo 1: Criar Endpoint Webhook
+
+### Estrutura Básica
+
+Seu endpoint deve aceitar requisições POST e responder rapidamente:
+
+```javascript
+// server.js - Express.js
+const express = require('express');
+const crypto = require('crypto');
+
+const app = express();
+
+// IMPORTANTE: Usar raw body para validação HMAC
+app.use('/webhooks/debita', express.raw({
+  type: 'application/json',
+  limit: '1mb'
+}));
+
+app.post('/webhooks/debita', async (req, res) => {
+  const startTime = Date.now();
+
+  try {
+    // 1. Validar assinatura
+    const signature = req.headers['x-debita-signature'];
+    const timestamp = req.headers['x-debita-timestamp'];
+
+    if (!validateWebhook(req.body, signature, timestamp)) {
+      return res.status(401).send('Unauthorized');
+    }
+
+    // 2. Parsear evento
+    const event = JSON.parse(req.body);
+
+    // 3. Processar de forma assíncrona
+    processEventAsync(event);
+
+    // 4. Responder rapidamente
+    res.status(200).json({ received: true });
+
+    console.log(`Webhook processado em ${Date.now() - startTime}ms`);
+
+  } catch (error) {
+    console.error('Erro no webhook:', error);
+    res.status(400).send('Bad Request');
+  }
+});
+
+function validateWebhook(payload, signature, timestamp) {
+  // Verificar timestamp (previne replay attacks)
+  const currentTime = Math.floor(Date.now() / 1000);
+  const webhookTime = parseInt(timestamp);
+
+  if (Math.abs(currentTime - webhookTime) > 300) { // 5 minutos
+    console.warn('Webhook timestamp muito antigo');
+    return false;
+  }
+
+  // Validar assinatura HMAC
+  const secret = process.env.DEBITA_WEBHOOK_SECRET;
+  const hmac = crypto.createHmac('sha256', secret);
+  hmac.update(timestamp + '.' + payload);
+  const expectedSignature = 'sha256=' + hmac.digest('hex');
+
+  return crypto.timingSafeEqual(
+    Buffer.from(expectedSignature),
+    Buffer.from(signature)
+  );
+}
+
+async function processEventAsync(event) {
+  // Processar em background para não bloquear resposta
+  setImmediate(async () => {
+    try {
+      await handleWebhookEvent(event);
+    } catch (error) {
+      console.error('Erro no processamento assíncrono:', error);
+    }
+  });
+}
+
+app.listen(3000, () => {
+  console.log('Servidor webhook rodando na porta 3000');
+});
+```
+
+### Versão Python (FastAPI)
+
+```python
+# webhook_server.py
+import hashlib
+import hmac
+import json
+import time
+from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
+
+app = FastAPI()
+
+@app.post("/webhooks/debita")
+async def webhook_debita(request: Request, background_tasks: BackgroundTasks):
+    try:
+        # Obter dados brutos
+        body = await request.body()
+        signature = request.headers.get("x-debita-signature")
+        timestamp = request.headers.get("x-debita-timestamp")
+
+        # Validar webhook
+        if not validate_webhook(body, signature, timestamp):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+
+        # Parsear evento
+        event = json.loads(body.decode("utf-8"))
+
+        # Processar em background
+        background_tasks.add_task(handle_webhook_event, event)
+
+        return {"received": True}
+
+    except Exception as e:
+        print(f"Erro no webhook: {e}")
+        raise HTTPException(status_code=400, detail="Bad Request")
+
+def validate_webhook(payload: bytes, signature: str, timestamp: str) -> bool:
+    # Verificar timestamp
+    current_time = int(time.time())
+    webhook_time = int(timestamp)
+
+    if abs(current_time - webhook_time) > 300:  # 5 minutos
+        return False
+
+    # Validar HMAC
+    secret = os.getenv("DEBITA_WEBHOOK_SECRET").encode()
+    message = f"{timestamp}.{payload.decode('utf-8')}".encode()
+    expected_signature = "sha256=" + hmac.new(secret, message, hashlib.sha256).hexdigest()
+
+    return hmac.compare_digest(expected_signature, signature)
+
+async def handle_webhook_event(event):
+    # Sua lógica de processamento aqui
+    print(f"Processando evento: {event['event']}")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=3000)
+```
+
+## 🔐 Passo 2: Implementar Validação HMAC
+
+### Algoritmo de Validação
+
+```javascript
+// webhook-validator.js
+const crypto = require('crypto');
+
+class WebhookValidator {
+  constructor(secret) {
+    this.secret = secret;
+  }
+
+  validate(payload, signature, timestamp) {
+    // 1. Verificar se todos os parâmetros estão presentes
+    if (!payload || !signature || !timestamp) {
+      throw new Error('Parâmetros obrigatórios ausentes');
+    }
+
+    // 2. Verificar formato da assinatura
+    if (!signature.startsWith('sha256=')) {
+      throw new Error('Formato de assinatura inválido');
+    }
+
+    // 3. Verificar timestamp (proteção contra replay)
+    const currentTime = Math.floor(Date.now() / 1000);
+    const webhookTime = parseInt(timestamp);
+    const timeDiff = Math.abs(currentTime - webhookTime);
+
+    if (timeDiff > 300) { // 5 minutos de tolerância
+      throw new Error(`Timestamp muito antigo: ${timeDiff}s`);
+    }
+
+    // 4. Calcular assinatura esperada
+    const signedPayload = `${timestamp}.${payload}`;
+    const hmac = crypto.createHmac('sha256', this.secret);
+    hmac.update(signedPayload, 'utf8');
+    const expectedSignature = 'sha256=' + hmac.digest('hex');
+
+    // 5. Comparação segura
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(expectedSignature),
+      Buffer.from(signature)
+    );
+
+    if (!isValid) {
+      throw new Error('Assinatura HMAC inválida');
+    }
+
+    return true;
+  }
+
+  // Método auxiliar para debug (não usar em produção)
+  debugValidation(payload, signature, timestamp) {
+    const signedPayload = `${timestamp}.${payload}`;
+    const hmac = crypto.createHmac('sha256', this.secret);
+    hmac.update(signedPayload, 'utf8');
+    const calculated = 'sha256=' + hmac.digest('hex');
+
+    console.log('Debug Webhook Validation:');
+    console.log('Payload length:', payload.length);
+    console.log('Timestamp:', timestamp);
+    console.log('Received signature:', signature);
+    console.log('Calculated signature:', calculated);
+    console.log('Match:', signature === calculated);
+
+    return signature === calculated;
+  }
+}
+
+module.exports = WebhookValidator;
+```
+
+### Exemplo de Uso
+
+```javascript
+// app.js
+const WebhookValidator = require('./webhook-validator');
+
+const validator = new WebhookValidator(process.env.DEBITA_WEBHOOK_SECRET);
+
+app.post('/webhooks/debita', express.raw({type: 'application/json'}), (req, res) => {
+  try {
+    // Validar webhook
+    validator.validate(
+      req.body.toString(),
+      req.headers['x-debita-signature'],
+      req.headers['x-debita-timestamp']
+    );
+
+    // Processar evento
+    const event = JSON.parse(req.body);
+    handleEvent(event);
+
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('Validação falhou:', error.message);
+    res.status(401).send('Unauthorized');
+  }
+});
+```
+
+## 📡 Passo 3: Registrar Webhook via API
+
+### Criação de Webhook
+
+```javascript
+// webhook-setup.js
+class WebhookManager {
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+    this.baseURL = 'https://api.debita.ai/v1';
+  }
+
+  async criarWebhook(configuracao) {
+    try {
+      const response = await fetch(`${this.baseURL}/webhooks`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: configuracao.url,
+          events: configuracao.eventos,
+          description: configuracao.descricao,
+          headers: configuracao.headers || {},
+          retry_policy: configuracao.retryPolicy || 'default'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      }
+
+      const webhook = await response.json();
+
+      // CRÍTICO: Salvar o secret de forma segura
+      await this.salvarSecret(webhook.id, webhook.secret);
+
+      console.log('Webhook criado com sucesso:');
+      console.log('ID:', webhook.id);
+      console.log('URL:', webhook.url);
+      console.log('Eventos:', webhook.events);
+
+      return webhook;
+    } catch (error) {
+      console.error('Erro ao criar webhook:', error);
+      throw error;
+    }
+  }
+
+  async listarWebhooks() {
+    const response = await fetch(`${this.baseURL}/webhooks`, {
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`
+      }
+    });
+
+    return await response.json();
+  }
+
+  async atualizarWebhook(webhookId, atualizacoes) {
+    const response = await fetch(`${this.baseURL}/webhooks/${webhookId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(atualizacoes)
+    });
+
+    return await response.json();
+  }
+
+  async deletarWebhook(webhookId) {
+    const response = await fetch(`${this.baseURL}/webhooks/${webhookId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`
+      }
+    });
+
+    return response.ok;
+  }
+
+  async salvarSecret(webhookId, secret) {
+    // Implementar storage seguro do secret
+    // Exemplos: AWS Secrets Manager, HashiCorp Vault, etc.
+    process.env[`WEBHOOK_SECRET_${webhookId}`] = secret;
+  }
+}
+
+// Exemplo de uso
+async function configurarWebhooks() {
+  const manager = new WebhookManager(process.env.DEBITA_API_KEY);
+
+  // Webhook principal para e-commerce
+  const webhookPrincipal = await manager.criarWebhook({
+    url: 'https://meusite.com/webhooks/debita',
+    eventos: [
+      'payment.confirmed',
+      'payment.failed',
+      'payment.expired',
+      'refund.completed'
+    ],
+    descricao: 'Webhook principal do e-commerce',
+    retryPolicy: 'aggressive'
+  });
+
+  // Webhook para analytics (opcional)
+  const webhookAnalytics = await manager.criarWebhook({
+    url: 'https://analytics.meusite.com/webhooks/debita',
+    eventos: [
+      'payment.created',
+      'payment.confirmed'
+    ],
+    descricao: 'Webhook para analytics',
+    retryPolicy: 'minimal'
+  });
+
+  return { principal: webhookPrincipal, analytics: webhookAnalytics };
+}
+```
+
+### Configurações Avançadas
+
+```javascript
+// Webhook com headers customizados
+const webhookComAuth = await manager.criarWebhook({
+  url: 'https://api.meusite.com/webhooks/debita',
+  eventos: ['payment.confirmed'],
+  headers: {
+    'Authorization': 'Bearer meu-token-interno',
+    'X-Internal-Source': 'debita-webhooks'
+  },
+  retry_policy: {
+    max_attempts: 5,
+    initial_interval: 30,
+    max_interval: 3600,
+    multiplier: 2.0
+  }
+});
+
+// Webhook com filtragem por metadata
+const webhookFiltrado = await manager.criarWebhook({
+  url: 'https://b2b.meusite.com/webhooks/debita',
+  eventos: ['payment.confirmed'],
+  filters: {
+    'metadata.tipo': 'b2b',
+    'amount': { 'gte': 50000 } // Apenas valores >= R$ 500
+  }
+});
+```
+
+## 🧪 Passo 4: Testar Webhooks
+
+### Teste Local com ngrok
+
+```bash
+# 1. Instalar ngrok
+npm install -g ngrok
+
+# 2. Expor porta local
+ngrok http 3000
+
+# 3. Usar URL do ngrok para registrar webhook
+# Exemplo: https://abc123.ngrok.io/webhooks/debita
+```
+
+### Ambiente de Teste
+
+```javascript
+// test-webhook.js
+const express = require('express');
+const WebhookValidator = require('./webhook-validator');
+
+const app = express();
+app.use(express.raw({type: 'application/json'}));
+
+// Webhook de teste que loga tudo
+app.post('/webhooks/debita/test', (req, res) => {
+  console.log('=== WEBHOOK RECEBIDO ===');
+  console.log('Headers:', req.headers);
+  console.log('Body:', req.body.toString());
+  console.log('========================');
+
+  try {
+    const validator = new WebhookValidator(process.env.DEBITA_WEBHOOK_SECRET);
+
+    const isValid = validator.validate(
+      req.body.toString(),
+      req.headers['x-debita-signature'],
+      req.headers['x-debita-timestamp']
+    );
+
+    console.log('✅ Assinatura válida');
+
+    const event = JSON.parse(req.body);
+    console.log('Evento:', event.event);
+    console.log('Dados:', JSON.stringify(event.data, null, 2));
+
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('❌ Erro na validação:', error.message);
+    res.status(401).send('Invalid');
+  }
+});
+
+app.listen(3000, () => {
+  console.log('Servidor de teste rodando na porta 3000');
+  console.log('Use ngrok para expor publicamente');
+});
+```
+
+### Simulação de Eventos
+
+```javascript
+// Criar cobrança de teste para gerar eventos
+async function criarCobrancaTeste() {
+  const response = await fetch('https://api.debita.ai/v1/charges/pix/dynamic', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer pk_sandbox_sua_chave',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      amount: 1000, // R$ 10,00
+      description: 'Teste de webhook',
+      customer: {
+        name: 'João Teste',
+        document: '111.444.777-35'
+      }
+    })
+  });
+
+  const cobranca = await response.json();
+  console.log('Cobrança de teste criada:', cobranca.id);
+  console.log('Use um simulador de PIX para gerar o evento payment.confirmed');
+
+  return cobranca;
+}
+```
+
+## 🔄 Passo 5: Implementar Processamento
+
+### Processador de Eventos
+
+```javascript
+// event-processor.js
+class EventProcessor {
+  constructor() {
+    this.handlers = new Map();
+    this.processedEvents = new Set();
+  }
+
+  // Registrar handlers para tipos de evento
+  on(eventType, handler) {
+    if (!this.handlers.has(eventType)) {
+      this.handlers.set(eventType, []);
+    }
+    this.handlers.get(eventType).push(handler);
+  }
+
+  async process(event) {
+    const eventId = `${event.timestamp}_${event.data.id}`;
+
+    // Prevenir processamento duplicado
+    if (this.processedEvents.has(eventId)) {
+      console.log('Evento já processado:', eventId);
+      return;
+    }
+
+    try {
+      // Buscar handlers para o tipo de evento
+      const handlers = this.handlers.get(event.event) || [];
+
+      if (handlers.length === 0) {
+        console.log('Nenhum handler para evento:', event.event);
+        return;
+      }
+
+      // Executar todos os handlers
+      await Promise.all(handlers.map(handler => {
+        return this.executeHandler(handler, event);
+      }));
+
+      // Marcar como processado
+      this.processedEvents.add(eventId);
+
+      console.log(`Evento processado: ${event.event} (${eventId})`);
+    } catch (error) {
+      console.error('Erro ao processar evento:', error);
+      throw error; // Re-throw para retry do webhook
+    }
+  }
+
+  async executeHandler(handler, event) {
+    try {
+      await handler(event.data, event);
+    } catch (error) {
+      console.error(`Erro no handler ${handler.name}:`, error);
+      throw error;
+    }
+  }
+}
+
+// Configurar handlers
+const processor = new EventProcessor();
+
+// Handler para pagamentos confirmados
+processor.on('payment.confirmed', async (paymentData) => {
+  console.log(`💰 Pagamento confirmado: R$ ${(paymentData.amount / 100).toFixed(2)}`);
+
+  // Atualizar status no banco de dados
+  await db.orders.update(
+    { external_id: paymentData.external_id },
+    {
+      status: 'paid',
+      payment_confirmed_at: new Date(paymentData.paid_at),
+      payment_method: paymentData.method
+    }
+  );
+
+  // Enviar email de confirmação
+  await emailService.sendPaymentConfirmation({
+    email: paymentData.customer.email,
+    amount: paymentData.amount,
+    orderId: paymentData.external_id
+  });
+
+  // Acionar fulfillment
+  await fulfillmentService.processOrder(paymentData.external_id);
+});
+
+// Handler para pagamentos expirados
+processor.on('payment.expired', async (paymentData) => {
+  console.log(`⏰ Pagamento expirou: ${paymentData.id}`);
+
+  // Liberar estoque reservado
+  await inventoryService.releaseReservation(paymentData.external_id);
+
+  // Enviar email de carrinho abandonado
+  await emailService.sendAbandonedCart({
+    email: paymentData.customer.email,
+    orderId: paymentData.external_id
+  });
+});
+
+// Handler para reembolsos
+processor.on('refund.completed', async (refundData) => {
+  console.log(`↩️ Reembolso processado: R$ ${(refundData.amount / 100).toFixed(2)}`);
+
+  // Atualizar status do pedido
+  await db.orders.update(
+    { id: refundData.charge.external_id },
+    {
+      status: 'refunded',
+      refunded_at: new Date(refundData.completed_at),
+      refund_amount: refundData.amount
+    }
+  );
+
+  // Notificar cliente
+  await emailService.sendRefundConfirmation({
+    email: refundData.charge.customer.email,
+    amount: refundData.amount,
+    orderId: refundData.charge.external_id
+  });
+});
+
+module.exports = processor;
+```
+
+### Integração no Webhook
+
+```javascript
+// webhook-endpoint.js
+const processor = require('./event-processor');
+
+app.post('/webhooks/debita', async (req, res) => {
+  try {
+    // Validação HMAC...
+    const event = JSON.parse(req.body);
+
+    // Processar evento
+    await processor.process(event);
+
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('Erro no webhook:', error);
+
+    // Para erros de validação, retornar 401
+    if (error.message.includes('assinatura') || error.message.includes('timestamp')) {
+      return res.status(401).send('Unauthorized');
+    }
+
+    // Para outros erros, retornar 500 para trigger retry
+    res.status(500).send('Internal Server Error');
+  }
+});
+```
+
+---
+
+<Tip>
+**Próximo Passo**: Explore a [lista completa de eventos](/webhooks/eventos) e seus payloads detalhados.
+</Tip>

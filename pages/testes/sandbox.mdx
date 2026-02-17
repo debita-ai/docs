@@ -1,0 +1,430 @@
+---
+title: "Ambiente Sandbox"
+description: "Guia completo do ambiente de sandbox da Debita AI para desenvolvimento seguro com simulações de pagamento e teste de integrações."
+---
+
+# Ambiente Sandbox
+
+O ambiente sandbox da Debita AI é um ambiente completo e isolado para desenvolvimento e testes de integrações, onde você pode simular todos os cenários de pagamento sem movimentar dinheiro real.
+
+## 🎯 Características do Sandbox
+
+<CardGroup cols={2}>
+  <Card title="Zero Risco" icon="shield-check">
+    Nenhuma transação real é processada. Ambiente 100% seguro para testes.
+  </Card>
+  <Card title="API Completa" icon="code">
+    Todas as funcionalidades da API de produção estão disponíveis.
+  </Card>
+  <Card title="Webhooks Reais" icon="webhook">
+    Sistema de webhooks funciona normalmente, permitindo testes completos.
+  </Card>
+  <Card title="Dados Fictícios" icon="user-circle">
+    Aceita CPFs e CNPJs de teste válidos para simulações.
+  </Card>
+</CardGroup>
+
+## 🔑 Configuração Inicial
+
+### 1. Obter Chave de Sandbox
+
+1. **Acesse** [dashboard.debita.ai](https://dashboard.debita.ai)
+2. **Faça login** com sua conta Google
+3. **Navegue** para "Configurações > Chaves da API"
+4. **Copie** sua chave de sandbox (começa com `pk_sandbox_`)
+
+```javascript
+// Configuração básica
+const DEBITA_API_KEY = 'pk_sandbox_abc123def456...';
+const BASE_URL = 'https://api.debita.ai/v1';
+
+// A API detecta automaticamente que é sandbox pelo prefixo
+```
+
+### 2. Diferenças do Ambiente de Produção
+
+| Recurso | Sandbox | Produção |
+|---------|---------|----------|
+| **Transações** | Simuladas | Reais |
+| **Rate Limit** | 50 req/min | 10 req/min |
+| **Dados** | CPF/CNPJ fictícios aceitos | Apenas dados reais |
+| **Webhooks** | Enviados normalmente | Enviados normalmente |
+| **Logs** | Debug detalhado | Essencial apenas |
+| **Headers Debug** | Disponíveis | Indisponíveis |
+
+## 🧪 Simulações de Pagamento
+
+### PIX - Simulação Automática
+
+No sandbox, pagamentos PIX são automaticamente "pagos" após alguns segundos:
+
+```javascript
+// Criar PIX em sandbox
+const response = await fetch('https://api.debita.ai/v1/charges/pix/dynamic', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer pk_sandbox_sua_chave',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    amount: 10000, // R$ 100,00
+    description: 'Teste de pagamento PIX',
+    customer: {
+      name: 'João Teste',
+      document: '111.444.777-35', // CPF fictício válido
+      email: 'joao@teste.com'
+    }
+  })
+});
+
+const charge = await response.json();
+
+// O pagamento será automaticamente confirmado em 3-10 segundos
+// Webhook será enviado normalmente
+```
+
+### Controlando Simulações
+
+Você pode controlar o comportamento da simulação usando parâmetros especiais:
+
+```javascript
+// Simular pagamento que falha
+const chargeFalha = await criarPix({
+  amount: 10000,
+  description: 'Teste de falha',
+  customer: {
+    name: 'Falha Teste',
+    document: '000.000.001-91'
+  },
+  metadata: {
+    simulate_failure: 'INSUFFICIENT_FUNDS' // Simula saldo insuficiente
+  }
+});
+
+// Simular pagamento que expira
+const chargeExpira = await criarPix({
+  amount: 5000,
+  description: 'Teste de expiração',
+  expires_at: new Date(Date.now() + 30000).toISOString(), // 30 segundos
+  metadata: {
+    simulate_behavior: 'let_expire' // Não pagar automaticamente
+  }
+});
+
+// Controlar timing da confirmação
+const chargeTiming = await criarPix({
+  amount: 7500,
+  description: 'Teste com timing específico',
+  metadata: {
+    simulate_delay_seconds: '30' // Confirmar em exatamente 30 segundos
+  }
+});
+```
+
+### Códigos de Simulação
+
+| Metadata | Comportamento |
+|----------|---------------|
+| `simulate_failure: "INSUFFICIENT_FUNDS"` | Simula saldo insuficiente |
+| `simulate_failure: "INVALID_ACCOUNT"` | Simula conta inválida |
+| `simulate_failure: "PAYMENT_REJECTED"` | Simula rejeição do banco |
+| `simulate_behavior: "let_expire"` | Não paga automaticamente |
+| `simulate_delay_seconds: "X"` | Confirma em X segundos |
+| `simulate_refund_delay: "X"` | Demora X segundos para processar reembolso |
+
+## 🛠️ Ferramentas de Desenvolvimento
+
+### Simulador de Pagamentos
+
+Você pode usar a interface do dashboard para simular pagamentos manualmente:
+
+1. **Acesse** [dashboard.debita.ai/sandbox](https://dashboard.debita.ai/sandbox)
+2. **Cole** o ID da cobrança
+3. **Escolha** o comportamento desejado:
+   - ✅ **Confirmar** pagamento
+   - ❌ **Falhar** com motivo específico
+   - ⏰ **Deixar** expirar
+4. **Execute** a simulação
+
+### Headers de Debug
+
+Em sandbox, você recebe headers extras com informações úteis:
+
+```javascript
+// Resposta da API em sandbox inclui headers de debug
+const response = await criarCobranca();
+
+console.log('Headers de debug:', {
+  'X-Debug-Environment': response.headers['x-debug-environment'], // 'sandbox'
+  'X-Debug-Request-Id': response.headers['x-debug-request-id'], // ID único da requisição
+  'X-Debug-Processing-Time': response.headers['x-debug-processing-time'], // Tempo em ms
+  'X-Debug-Simulated': response.headers['x-debug-simulated'], // 'true' se simulado
+  'X-Debug-Rate-Limit-Remaining': response.headers['x-debug-rate-limit-remaining'] // Requisições restantes
+});
+```
+
+### Logs Detalhados
+
+```javascript
+// Em sandbox, você pode ativar logs verbosos
+const response = await fetch('https://api.debita.ai/v1/charges/pix/dynamic', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer pk_sandbox_sua_chave',
+    'Content-Type': 'application/json',
+    'X-Debug-Verbose': 'true' // Ativa logs detalhados
+  },
+  body: JSON.stringify(payload)
+});
+
+// Response incluirá campo 'debug' com informações extras
+const data = await response.json();
+console.log('Debug info:', data.debug);
+```
+
+## 🔄 Testando Webhooks
+
+### Configuração de Webhook para Testes
+
+```javascript
+// Registrar webhook apontando para localhost (use ngrok)
+const webhook = await fetch('https://api.debita.ai/v1/webhooks', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer pk_sandbox_sua_chave',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    url: 'https://abc123.ngrok.io/webhooks/debita',
+    events: ['payment.confirmed', 'payment.failed', 'payment.expired'],
+    description: 'Webhook de desenvolvimento'
+  })
+});
+
+const webhookData = await webhook.json();
+console.log('Webhook criado:', webhookData.id);
+console.log('Secret:', webhookData.secret); // Salve este secret!
+```
+
+### Testando Webhooks com ngrok
+
+```bash
+# 1. Instalar ngrok
+npm install -g ngrok
+
+# 2. Rodar servidor local na porta 3000
+node server.js &
+
+# 3. Expor com ngrok
+ngrok http 3000
+
+# 4. Usar URL do ngrok no webhook
+# Exemplo: https://abc123.ngrok.io
+```
+
+### Servidor de Teste para Webhook
+
+```javascript
+// test-webhook-server.js
+const express = require('express');
+const crypto = require('crypto');
+
+const app = express();
+app.use(express.raw({ type: 'application/json' }));
+
+// Endpoint para receber webhooks
+app.post('/webhooks/debita', (req, res) => {
+  console.log('\n=== WEBHOOK RECEBIDO ===');
+  console.log('Timestamp:', new Date().toISOString());
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+
+  try {
+    // Validar assinatura (use o secret do webhook)
+    const signature = req.headers['x-debita-signature'];
+    const timestamp = req.headers['x-debita-timestamp'];
+    const secret = process.env.WEBHOOK_SECRET;
+
+    if (validateWebhook(req.body, signature, timestamp, secret)) {
+      console.log('✅ Assinatura válida');
+
+      const event = JSON.parse(req.body);
+      console.log('Evento:', event.event);
+      console.log('ID da cobrança:', event.data.id);
+      console.log('Status:', event.data.status);
+      console.log('Valor:', event.data.amount);
+
+      if (event.event === 'payment.confirmed') {
+        console.log('🎉 PAGAMENTO CONFIRMADO!');
+        console.log('End-to-End ID:', event.data.pix?.end_to_end_id);
+      }
+
+      res.status(200).send('OK');
+    } else {
+      console.log('❌ Assinatura inválida');
+      res.status(401).send('Invalid signature');
+    }
+  } catch (error) {
+    console.error('❌ Erro ao processar webhook:', error.message);
+    res.status(400).send('Error');
+  }
+
+  console.log('========================\n');
+});
+
+function validateWebhook(payload, signature, timestamp, secret) {
+  const hmac = crypto.createHmac('sha256', secret);
+  hmac.update(timestamp + '.' + payload);
+  const expectedSignature = 'sha256=' + hmac.digest('hex');
+
+  return crypto.timingSafeEqual(
+    Buffer.from(expectedSignature),
+    Buffer.from(signature)
+  );
+}
+
+const port = 3000;
+app.listen(port, () => {
+  console.log(`🚀 Servidor de teste rodando na porta ${port}`);
+  console.log(`📡 Use ngrok para expor: ngrok http ${port}`);
+});
+```
+
+## 📊 Monitoramento em Sandbox
+
+### Dashboard de Desenvolvimento
+
+```javascript
+// Consultar estatísticas de sandbox
+async function getStatsDesenvolvimento() {
+  const response = await fetch('https://api.debita.ai/v1/dev/stats', {
+    headers: {
+      'Authorization': 'Bearer pk_sandbox_sua_chave'
+    }
+  });
+
+  const stats = await response.json();
+  return {
+    totalCharges: stats.total_charges,
+    successfulPayments: stats.successful_payments,
+    failedPayments: stats.failed_payments,
+    webhooksDelivered: stats.webhooks_delivered,
+    averageResponseTime: stats.average_response_time
+  };
+}
+
+// Limpar dados de teste
+async function limparDadosTeste() {
+  const response = await fetch('https://api.debita.ai/v1/dev/clear', {
+    method: 'DELETE',
+    headers: {
+      'Authorization': 'Bearer pk_sandbox_sua_chave'
+    }
+  });
+
+  return response.ok;
+}
+```
+
+### Logs de Desenvolvimento
+
+```javascript
+// Consultar logs detalhados (apenas sandbox)
+async function getLogs(filtros = {}) {
+  const params = new URLSearchParams({
+    start_date: filtros.startDate || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    end_date: filtros.endDate || new Date().toISOString(),
+    event_type: filtros.eventType || 'all',
+    limit: filtros.limit || '100'
+  });
+
+  const response = await fetch(`https://api.debita.ai/v1/dev/logs?${params}`, {
+    headers: {
+      'Authorization': 'Bearer pk_sandbox_sua_chave'
+    }
+  });
+
+  return await response.json();
+}
+
+// Exemplo de uso
+const logs = await getLogs({
+  eventType: 'payment.confirmed',
+  limit: '50'
+});
+
+console.log('Últimos pagamentos confirmados:', logs);
+```
+
+## 🚀 Migração para Produção
+
+### Checklist de Migração
+
+<Steps>
+  <Step title="Testar todos os fluxos">
+    ✅ PIX dinâmico, estático e com fiador
+    ✅ Boleto tradicional e híbrido
+    ✅ Webhooks de todos os eventos
+    ✅ Cenários de falha e expiração
+  </Step>
+
+  <Step title="Validar dados">
+    ✅ Substituir dados fictícios por reais
+    ✅ Validar CPF/CNPJ reais
+    ✅ Testar com dados de clientes reais (pequenos valores)
+  </Step>
+
+  <Step title="Configurar produção">
+    ✅ Obter chave `pk_live_` no dashboard
+    ✅ Configurar webhook de produção (HTTPS obrigatório)
+    ✅ Implementar rate limiting (10 req/min)
+    ✅ Configurar monitoramento e alertas
+  </Step>
+
+  <Step title="Deploy seguro">
+    ✅ Deploy em ambiente de staging primeiro
+    ✅ Testes com valores baixos em produção
+    ✅ Monitorar métricas de erro
+    ✅ Rollback preparado
+  </Step>
+</Steps>
+
+### Diferenças Importantes
+
+```javascript
+// Sandbox vs Produção
+const config = {
+  sandbox: {
+    apiKey: 'pk_sandbox_...',
+    rateLimit: 50, // req/min
+    validation: 'relaxed', // Aceita CPF fictício
+    simulation: true,
+    debugging: true
+  },
+  production: {
+    apiKey: 'pk_live_...',
+    rateLimit: 10, // req/min
+    validation: 'strict', // Apenas dados reais
+    simulation: false,
+    debugging: false
+  }
+};
+
+// Código adaptativo
+function getConfig() {
+  const apiKey = process.env.DEBITA_API_KEY;
+
+  if (apiKey.startsWith('pk_sandbox_')) {
+    return config.sandbox;
+  } else if (apiKey.startsWith('pk_live_')) {
+    return config.production;
+  } else {
+    throw new Error('Chave API inválida');
+  }
+}
+```
+
+---
+
+<Tip>
+**Próximo Passo**: Explore [cenários de teste](/testes/cenarios) específicos para validar completamente sua integração antes da migração para produção.
+</Tip>

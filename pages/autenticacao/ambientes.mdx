@@ -1,0 +1,257 @@
+---
+title: "Autenticação API"
+description: "Como autenticar nas APIs da Debita AI usando API Keys para desenvolvimento e integração."
+---
+
+# Autenticação e API Keys
+
+A Debita AI usa duas formas de autenticação dependendo do contexto:
+
+## 🔐 Autenticação Dashboard (Firebase + Cookie)
+
+Para usuários acessando o dashboard e aplicações web:
+
+1. **Firebase Authentication**: Autenticação inicial com Google/email
+2. **HttpOnly Cookie**: Sessão segura criada após login
+
+```javascript
+// Após login no Firebase
+const response = await fetch('/auth/session', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${firebaseToken}`,
+    'Content-Type': 'application/json'
+  }
+});
+
+// Cookie HTTPOnly é automaticamente definido
+// Sessão dura 7 dias
+```
+
+## 🔑 API Keys para Desenvolvimento
+
+Para integrações e desenvolvimento, use API Keys no ambiente sandbox:
+
+### Formato das Chaves
+
+```
+pk_sandbox_[64_chars_hex]
+```
+
+**Exemplo:**
+```
+pk_sandbox_a1b2c3d4e5f6789012345678901234567890123456789012345678901234
+```
+
+### Como Obter uma API Key
+
+1. Acesse o dashboard da Debita AI
+2. Vá em **Configurações** → **API Keys**
+3. Clique em **Criar Nova Chave**
+4. Defina um nome (ex: "Desenvolvimento Local")
+5. **Importante**: Salve a chave imediatamente - ela só é mostrada uma vez!
+
+### Autenticação com API Key
+
+```javascript
+const headers = {
+  'Authorization': `Bearer pk_sandbox_abc123...`,
+  'Content-Type': 'application/json'
+};
+
+const response = await fetch('https://api.debita.ai/charges', {
+  method: 'POST',
+  headers,
+  body: JSON.stringify({
+    amount: 10000,
+    description: 'Teste PIX',
+    // ...
+  })
+});
+```
+
+### Permissões Disponíveis
+
+As API Keys podem ter diferentes permissões:
+
+- `payments:read` - Visualizar pagamentos
+- `payments:write` - Criar/modificar pagamentos
+- `customers:read` - Visualizar clientes
+- `customers:write` - Criar/modificar clientes
+
+### Rate Limiting
+
+**Limite atual: 50.000 requests** por chave de desenvolvimento
+
+```javascript
+// Headers de resposta indicam limite
+HTTP/1.1 200 OK
+X-RateLimit-Limit: 50000
+X-RateLimit-Remaining: 49999
+X-RateLimit-Reset: 1640995200
+```
+
+## 🔒 Segurança das API Keys
+
+### ✅ Boas Práticas
+
+- **Mantenha em variáveis de ambiente**:
+  ```bash
+  # .env
+  DEBITA_API_KEY=pk_sandbox_abc123...
+  ```
+
+- **Use HTTPS sempre**:
+  ```javascript
+  // ✅ Correto
+  const baseURL = 'https://api.debita.ai';
+
+  // ❌ NUNCA usar HTTP
+  const baseURL = 'http://api.debita.ai';
+  ```
+
+- **Rotacione periodicamente** (recomendado: a cada 90 dias)
+
+### ❌ O que NÃO fazer
+
+- Nunca commite chaves no Git
+- Não use em frontend público (client-side)
+- Não compartilhe em logs ou URLs
+- Não hardcode nas aplicações
+
+```javascript
+// ❌ NUNCA faça isso
+const API_KEY = 'pk_sandbox_abc123...'; // hardcoded!
+
+// ✅ Use variáveis de ambiente
+const API_KEY = process.env.DEBITA_API_KEY;
+```
+
+## 📊 Monitoramento de Uso
+
+### Estatísticas Disponíveis
+
+- **Último uso**: Quando a chave foi usada pela última vez
+- **Contador de uso**: Total de requests feitos
+- **Rate limit**: Requests restantes no período
+
+### Via Dashboard
+
+Monitore o uso das suas chaves em **Configurações** → **API Keys**:
+
+- 📊 Total de requests
+- ⏰ Último acesso
+- 🚦 Status da chave (ativa/inativa)
+
+### Via Headers de Resposta
+
+```javascript
+const response = await fetch('/api/endpoint', { headers });
+
+console.log(response.headers.get('X-RateLimit-Remaining'));
+console.log(response.headers.get('X-RateLimit-Reset'));
+```
+
+## 🛠️ Implementação Prática
+
+### Cliente HTTP Configurado
+
+```javascript
+class DebitaClient {
+  constructor(apiKey) {
+    if (!apiKey || !apiKey.startsWith('pk_sandbox_')) {
+      throw new Error('API key inválida. Use pk_sandbox_...');
+    }
+
+    this.apiKey = apiKey;
+    this.baseURL = 'https://api.debita.ai';
+  }
+
+  async request(endpoint, options = {}) {
+    const headers = {
+      'Authorization': `Bearer ${this.apiKey}`,
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      ...options,
+      headers
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  // Métodos específicos
+  async createPixCharge(data) {
+    return this.request('/charges', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  }
+}
+
+// Uso
+const client = new DebitaClient(process.env.DEBITA_API_KEY);
+const charge = await client.createPixCharge({
+  amount: 10000,
+  description: 'Pagamento teste'
+});
+```
+
+### Tratamento de Erros de Autenticação
+
+```javascript
+async function handleApiCall() {
+  try {
+    const response = await debitaClient.request('/charges');
+    return response;
+  } catch (error) {
+    if (error.status === 401) {
+      console.error('❌ API Key inválida ou expirada');
+      // Redirecionar para renovação de chave
+    } else if (error.status === 429) {
+      console.error('⏱️ Rate limit excedido');
+      // Implementar backoff/retry
+    } else {
+      console.error('🚨 Erro na API:', error.message);
+    }
+    throw error;
+  }
+}
+```
+
+## 🔄 Gerenciamento de Chaves
+
+### Criação via Dashboard
+
+1. **Nome descritivo**: "Desenvolvimento Local", "Staging", etc.
+2. **Permissões específicas**: Só o necessário para cada uso
+3. **Backup da chave**: Salve em gerenciador de senhas
+
+### Revogação
+
+Para revogar uma chave:
+1. Acesse **Configurações** → **API Keys**
+2. Clique em **Excluir** na chave desejada
+3. **Efeito imediato**: Todas as requests falharão com 401
+
+### Rotação Segura
+
+```bash
+# 1. Crie nova chave no dashboard
+DEBITA_API_KEY_NEW=pk_sandbox_new123...
+
+# 2. Teste a nova chave
+curl -H "Authorization: Bearer $DEBITA_API_KEY_NEW" \
+     https://api.debita.ai/health
+
+# 3. Atualize aplicação
+DEBITA_API_KEY=pk_sandbox_new123...
+
+# 4. Revogue chave antiga no dashboard
+```

@@ -1,0 +1,364 @@
+---
+title: "GET /v1/charges/{id}"
+api: "GET https://api.debita.ai/v1/charges/{id}"
+description: "Consulta o status e detalhes completos de uma cobrança PIX ou boleto por ID."
+---
+
+## Visão Geral
+
+Consulta informações detalhadas de uma cobrança específica, incluindo status atual, dados do pagamento e histórico de transações. Este endpoint funciona para:
+
+- **PIX Dinâmico**: Verificar se foi pago e obter detalhes
+- **PIX Estático**: Consultar pagamentos recebidos
+- **Boletos**: Status e informações de pagamento
+- **Histórico**: Timeline completa da cobrança
+
+<Info>
+**Polling vs Webhooks**: Use este endpoint para consultas pontuais. Para atualizações em tempo real, configure [webhooks](/webhooks/configuracao).
+</Info>
+
+## Parâmetros da Requisição
+
+### Headers Obrigatórios
+
+<ParamField header="Authorization" type="string" required>
+  Chave API no formato Bearer token
+  ```
+  Bearer pk_sandbox_sua_chave
+  ```
+</ParamField>
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  ID único da cobrança (ex: `chg_1a2b3c4d5e6f` para PIX ou `chg_boleto_abc123` para boleto)
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="include" type="string">
+  Campos adicionais para incluir na resposta (separados por vírgula):
+  - `transactions` - Histórico de transações
+  - `events` - Timeline de eventos
+  - `customer_full` - Dados completos do cliente
+</ParamField>
+
+## Exemplo de Requisição
+
+<RequestExample>
+
+```bash cURL
+# Consulta básica
+curl -X GET https://api.debita.ai/v1/charges/chg_1a2b3c4d5e6f \
+  -H "Authorization: Bearer pk_sandbox_sua_chave"
+
+# Consulta com dados completos
+curl -X GET "https://api.debita.ai/v1/charges/chg_1a2b3c4d5e6f?include=transactions,events,customer_full" \
+  -H "Authorization: Bearer pk_sandbox_sua_chave"
+```
+
+```javascript Node.js
+// Consulta básica
+const response = await fetch('https://api.debita.ai/v1/charges/chg_1a2b3c4d5e6f', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer pk_sandbox_sua_chave'
+  }
+});
+
+const charge = await response.json();
+console.log('Status:', charge.status);
+console.log('Valor pago:', charge.amount_paid);
+
+// Consulta com dados completos
+const detailedResponse = await fetch(
+  'https://api.debita.ai/v1/charges/chg_1a2b3c4d5e6f?include=transactions,events',
+  {
+    method: 'GET',
+    headers: {
+      'Authorization': 'Bearer pk_sandbox_sua_chave'
+    }
+  }
+);
+
+const detailedCharge = await detailedResponse.json();
+console.log('Transações:', detailedCharge.transactions);
+```
+
+```python Python
+import requests
+
+# Consulta básica
+url = 'https://api.debita.ai/v1/charges/chg_1a2b3c4d5e6f'
+headers = {
+    'Authorization': 'Bearer pk_sandbox_sua_chave'
+}
+
+response = requests.get(url, headers=headers)
+charge = response.json()
+
+print(f'Status: {charge["status"]}')
+print(f'Valor pago: {charge["amount_paid"]}')
+
+# Consulta com dados completos
+params = {'include': 'transactions,events,customer_full'}
+detailed_response = requests.get(url, headers=headers, params=params)
+detailed_charge = detailed_response.json()
+
+print(f'Transações: {detailed_charge["transactions"]}')
+```
+
+</RequestExample>
+
+## Resposta
+
+<ResponseExample>
+
+```json PIX Dinâmico - Pago (200)
+{
+  "id": "chg_1a2b3c4d5e6f",
+  "status": "confirmed",
+  "method": "pix_dynamic",
+  "amount": 25000,
+  "amount_paid": 25000,
+  "currency": "BRL",
+  "description": "Compra de curso online",
+  "customer": {
+    "id": "cust_9z8y7x6w",
+    "name": "Maria Silva Santos",
+    "document": "123.456.789-09",
+    "email": "maria.silva@email.com"
+  },
+  "pix": {
+    "qr_code": "data:image/png;base64,iVBORw0KGgo...",
+    "payload": "00020126580014br.gov.bcb.pix...",
+    "txid": "E12345678202401011230123456789",
+    "expires_at": "2024-01-01T15:30:00-03:00",
+    "end_to_end_id": "E1234567820240101123012345678901"
+  },
+  "payment": {
+    "confirmed_at": "2024-01-01T14:45:30-03:00",
+    "method": "pix",
+    "bank_name": "Banco do Brasil",
+    "payer_name": "Maria Silva Santos",
+    "payer_document": "123.456.789-09"
+  },
+  "external_id": "pedido_12345",
+  "metadata": {
+    "produto": "curso_avancado"
+  },
+  "created_at": "2024-01-01T14:30:00-03:00",
+  "updated_at": "2024-01-01T14:45:30-03:00"
+}
+```
+
+```json Boleto - Pendente (200)
+{
+  "id": "chg_boleto_abc123",
+  "status": "pending",
+  "method": "boleto",
+  "amount": 50000,
+  "amount_paid": 0,
+  "currency": "BRL",
+  "description": "Mensalidade Janeiro 2024",
+  "due_date": "2024-01-31",
+  "customer": {
+    "id": "cust_def456",
+    "name": "João Silva Santos",
+    "document": "123.456.789-09",
+    "email": "joao@email.com"
+  },
+  "boleto": {
+    "barcode": "34191234567890123456789012345678901234567890",
+    "digitable_line": "34191.23456 78901.234567 89012.345678 9 01234567890",
+    "pdf_url": "https://api.debita.ai/boletos/chg_boleto_abc123/pdf",
+    "bank_number": "341",
+    "bank_name": "Itaú Unibanco"
+  },
+  "pix": {
+    "qr_code": "data:image/png;base64,iVBORw0KGgo...",
+    "payload": "00020126580014br.gov.bcb.pix...",
+    "txid": "BOLETO123456789012345"
+  },
+  "fine_amount": 2500,
+  "interest_amount": 100,
+  "days_overdue": 0,
+  "created_at": "2024-01-01T10:00:00-03:00",
+  "updated_at": "2024-01-01T10:00:00-03:00"
+}
+```
+
+```json PIX Estático - Múltiplos Pagamentos (200)
+{
+  "id": "pix_static_7h8i9j0k",
+  "type": "pix_static",
+  "status": "active",
+  "description": "Doações para ONG",
+  "total_received": 75000,
+  "payments_count": 3,
+  "pix": {
+    "qr_code": "data:image/png;base64,iVBORw0KGgo...",
+    "payload": "00020126580014br.gov.bcb.pix...",
+    "key": "pix_static_7h8i9j0k@debita.ai"
+  },
+  "suggested_amounts": [1000, 2500, 5000, 10000],
+  "recent_payments": [
+    {
+      "amount": 25000,
+      "payer_name": "Ana Costa",
+      "payer_document": "987.654.321-00",
+      "paid_at": "2024-01-01T16:30:00-03:00",
+      "end_to_end_id": "E9876543210240101163012345678901"
+    },
+    {
+      "amount": 50000,
+      "payer_name": "Carlos Santos",
+      "payer_document": "456.789.123-45",
+      "paid_at": "2024-01-01T15:20:00-03:00",
+      "end_to_end_id": "E4567891230240101152012345678902"
+    }
+  ],
+  "created_at": "2024-01-01T10:00:00-03:00",
+  "updated_at": "2024-01-01T16:30:00-03:00"
+}
+```
+
+```json Erro - Cobrança não encontrada (404)
+{
+  "error": {
+    "type": "not_found_error",
+    "code": "CHARGE_NOT_FOUND",
+    "message": "Charge with id 'chg_invalid123' not found",
+    "field": "id"
+  }
+}
+```
+
+</ResponseExample>
+
+## Campos da Resposta
+
+### Campos Comuns
+
+<ResponseField name="id" type="string">
+  ID único da cobrança
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Status atual da cobrança:
+  - `pending`: Aguardando pagamento
+  - `confirmed`: Pagamento confirmado
+  - `expired`: Expirada/vencida
+  - `cancelled`: Cancelada
+  - `failed`: Falha no pagamento
+</ResponseField>
+
+<ResponseField name="amount" type="integer">
+  Valor original da cobrança em centavos
+</ResponseField>
+
+<ResponseField name="amount_paid" type="integer">
+  Valor efetivamente pago em centavos (pode incluir juros/multa)
+</ResponseField>
+
+### Campos Específicos PIX
+
+<ResponseField name="pix.end_to_end_id" type="string">
+  ID end-to-end do pagamento PIX (disponível após confirmação)
+</ResponseField>
+
+<ResponseField name="payment" type="object">
+  Detalhes do pagamento confirmado
+  <Expandable title="Propriedades do payment">
+    <ResponseField name="confirmed_at" type="string">
+      Data/hora de confirmação do pagamento
+    </ResponseField>
+    <ResponseField name="bank_name" type="string">
+      Nome do banco do pagador
+    </ResponseField>
+    <ResponseField name="payer_name" type="string">
+      Nome do pagador
+    </ResponseField>
+    <ResponseField name="payer_document" type="string">
+      Documento do pagador
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Campos Específicos Boleto
+
+<ResponseField name="days_overdue" type="integer">
+  Dias de atraso (0 se dentro do prazo)
+</ResponseField>
+
+<ResponseField name="due_date" type="string">
+  Data de vencimento original
+</ResponseField>
+
+### Campos PIX Estático
+
+<ResponseField name="total_received" type="integer">
+  Valor total recebido via este PIX estático
+</ResponseField>
+
+<ResponseField name="payments_count" type="integer">
+  Quantidade total de pagamentos recebidos
+</ResponseField>
+
+<ResponseField name="recent_payments" type="array">
+  Lista dos pagamentos mais recentes (últimos 10)
+</ResponseField>
+
+## Status Possíveis
+
+### PIX Dinâmico
+- `pending` → `confirmed` (pagamento bem-sucedido)
+- `pending` → `expired` (QR Code expirou)
+- `pending` → `cancelled` (cancelado manualmente)
+
+### Boleto
+- `pending` → `confirmed` (boleto pago)
+- `pending` → `expired` (vencimento + prazo de tolerância)
+- `pending` → `cancelled` (cancelado manualmente)
+
+### PIX Estático
+- `active` (sempre ativo, recebendo pagamentos)
+- `inactive` (desabilitado manualmente)
+
+## Códigos de Erro
+
+<ResponseField name="404" type="error">
+  **Not Found** - Cobrança não encontrada
+</ResponseField>
+
+<ResponseField name="401" type="error">
+  **Unauthorized** - Chave API inválida ou ausente
+</ResponseField>
+
+## Polling Guidelines
+
+<Warning>
+**Limite de Polling**: Não faça mais de 1 requisição por minuto por cobrança. Use webhooks para atualizações em tempo real.
+</Warning>
+
+```javascript
+// Exemplo de polling responsável
+async function checkChargeStatus(chargeId) {
+  const response = await fetch(`https://api.debita.ai/v1/charges/${chargeId}`, {
+    headers: { 'Authorization': 'Bearer pk_sandbox_sua_chave' }
+  });
+
+  const charge = await response.json();
+
+  if (charge.status === 'pending') {
+    // Aguarda 60 segundos antes da próxima consulta
+    setTimeout(() => checkChargeStatus(chargeId), 60000);
+  } else {
+    console.log('Pagamento finalizado:', charge.status);
+  }
+}
+```
+
+<Card title="Configurar Webhooks" icon="webhook" href="/webhooks/configuracao">
+  Receba notificações em tempo real em vez de fazer polling
+</Card>

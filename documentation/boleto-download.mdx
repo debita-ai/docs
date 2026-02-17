@@ -1,0 +1,375 @@
+---
+title: "Boleto PDF Download"
+description: "API público para download de PDFs de boleto bancário sem necessidade de autenticação."
+---
+
+# Boleto PDF Download
+
+API público para acesso e download de boletos bancários gerados pela plataforma. Este endpoint não requer autenticação e permite que clientes acessem e baixem seus boletos através de um código único.
+
+## 🌐 Endpoints Públicos
+
+### Visualizar Boleto
+```http
+GET https://api.debita.ai/v1/boleto/{code}
+```
+
+**Descrição**: Retorna todos os dados do boleto para visualização, incluindo linha digitável, código de barras e informações de pagamento.
+
+**Parâmetros**:
+- `code` (string): Código único do boleto (ex: `bol_abc123xyz`)
+
+#### Exemplo de Resposta
+
+```json
+{
+  "id": "bol_abc123xyz",
+  "status": "pending",
+  "amount": 15000,
+  "currency": "BRL",
+  "due_date": "2024-01-31",
+  "description": "Fatura de serviços - Janeiro 2024",
+  "merchant": {
+    "name": "Sua Empresa Ltda",
+    "document": "12.345.678/0001-95",
+    "address": "Rua Comercial, 123 - São Paulo/SP"
+  },
+  "customer": {
+    "name": "João Silva",
+    "document": "123.456.789-09",
+    "email": "joao@email.com"
+  },
+  "barcode": {
+    "code": "34191790010000150009999999999999999999999",
+    "line": "34199.99999 99999.999999 99999.999999 9 99990100000015000"
+  },
+  "pix_integration": {
+    "enabled": true,
+    "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA...",
+    "qr_code_text": "00020126580014br.gov.bcb.pix...",
+    "discount_rate": 0.03
+  },
+  "fees": {
+    "late_fee_rate": 0.02,
+    "interest_rate": 0.033,
+    "discount_until": "2024-01-25",
+    "discount_rate": 0.05
+  },
+  "pdf_url": "https://api.debita.ai/v1/boleto/bol_abc123xyz/pdf",
+  "expires_at": "2024-02-29T23:59:59-03:00",
+  "created_at": "2024-01-01T10:00:00-03:00"
+}
+```
+
+### Download PDF do Boleto
+```http
+GET https://api.debita.ai/v1/boleto/{code}/pdf
+```
+
+**Descrição**: Redireciona (HTTP 302) para o PDF do boleto hospedado no provedor bancário. O PDF é gerado dinamicamente e inclui todos os dados atualizados, incluindo juros e multa se houver atraso.
+
+**Parâmetros**:
+- `code` (string): Código único do boleto
+
+#### Respostas
+
+**200 - Sucesso**:
+```http
+HTTP/1.1 302 Found
+Location: https://delfinance.api.com/boleto/download/correlation_id_123.pdf
+Content-Type: application/json
+
+{
+  "url": "https://delfinance.api.com/boleto/download/correlation_id_123.pdf",
+  "statusCode": 302
+}
+```
+
+**404 - Boleto não encontrado**:
+```json
+{
+  "error": {
+    "type": "not_found",
+    "code": "BOLETO_NOT_FOUND",
+    "message": "Boleto não encontrado ou código inválido"
+  }
+}
+```
+
+**410 - Link expirado**:
+```json
+{
+  "error": {
+    "type": "expired",
+    "code": "BOLETO_LINK_EXPIRED",
+    "message": "Link do boleto expirado",
+    "expired_at": "2024-01-31T23:59:59-03:00"
+  }
+}
+```
+
+## 🔧 Implementação Frontend
+
+### JavaScript Vanilla
+
+```javascript
+// Função para acessar dados do boleto
+async function getBoletoData(code) {
+  try {
+    const response = await fetch(`https://api.debita.ai/v1/boleto/${code}`);
+
+    if (!response.ok) {
+      throw new Error(`Erro ${response.status}: ${response.statusText}`);
+    }
+
+    const boleto = await response.json();
+
+    // Exibir dados do boleto
+    document.getElementById('amount').textContent =
+      `R$ ${(boleto.amount / 100).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2
+      })}`;
+
+    document.getElementById('due-date').textContent =
+      new Date(boleto.due_date).toLocaleDateString('pt-BR');
+
+    document.getElementById('barcode-line').textContent = boleto.barcode.line;
+
+    // Configurar botão de download
+    document.getElementById('download-pdf').href =
+      `https://api.debita.ai/v1/boleto/${code}/pdf`;
+
+    return boleto;
+
+  } catch (error) {
+    console.error('Erro ao carregar boleto:', error);
+    showError('Não foi possível carregar os dados do boleto');
+  }
+}
+
+// Função para download direto (alternativa)
+async function downloadBoletoPdf(code) {
+  try {
+    const response = await fetch(
+      `https://api.debita.ai/v1/boleto/${code}/pdf`,
+      { method: 'GET', redirect: 'manual' }
+    );
+
+    if (response.type === 'opaqueredirect') {
+      // Browser irá fazer o redirect automaticamente
+      window.location.href = response.url;
+    } else if (response.ok) {
+      const data = await response.json();
+      window.open(data.url, '_blank');
+    } else {
+      throw new Error('Erro ao acessar PDF do boleto');
+    }
+
+  } catch (error) {
+    console.error('Erro no download:', error);
+    alert('Não foi possível baixar o PDF do boleto');
+  }
+}
+```
+
+### React Component
+
+```jsx
+import { useState, useEffect } from 'react';
+
+function BoletoViewer({ boletoCode }) {
+  const [boleto, setBoleto] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function loadBoleto() {
+      try {
+        setLoading(true);
+        const response = await fetch(
+          `https://api.debita.ai/v1/boleto/${boletoCode}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`Erro ${response.status}`);
+        }
+
+        const data = await response.json();
+        setBoleto(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (boletoCode) {
+      loadBoleto();
+    }
+  }, [boletoCode]);
+
+  const handleDownloadPdf = () => {
+    window.open(`https://api.debita.ai/v1/boleto/${boletoCode}/pdf`, '_blank');
+  };
+
+  if (loading) return <div>Carregando boleto...</div>;
+  if (error) return <div>Erro: {error}</div>;
+  if (!boleto) return null;
+
+  return (
+    <div className="boleto-viewer">
+      <h2>Boleto Bancário</h2>
+
+      <div className="boleto-header">
+        <div className="amount">
+          <strong>Valor: R$ {(boleto.amount / 100).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2
+          })}</strong>
+        </div>
+        <div className="due-date">
+          Vencimento: {new Date(boleto.due_date).toLocaleDateString('pt-BR')}
+        </div>
+      </div>
+
+      <div className="merchant-info">
+        <h3>{boleto.merchant.name}</h3>
+        <p>{boleto.merchant.document}</p>
+        <p>{boleto.description}</p>
+      </div>
+
+      <div className="payment-options">
+        <div className="barcode-section">
+          <h4>Código de Barras</h4>
+          <code className="barcode-line">{boleto.barcode.line}</code>
+          <button
+            onClick={() => navigator.clipboard.writeText(boleto.barcode.line)}
+          >
+            Copiar código
+          </button>
+        </div>
+
+        {boleto.pix_integration?.enabled && (
+          <div className="pix-section">
+            <h4>Pagar com PIX</h4>
+            <img src={boleto.pix_integration.qr_code} alt="QR Code PIX" />
+            <p>Desconto de {(boleto.pix_integration.discount_rate * 100).toFixed(0)}% no PIX</p>
+          </div>
+        )}
+      </div>
+
+      <div className="actions">
+        <button onClick={handleDownloadPdf} className="btn-primary">
+          📥 Download PDF
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default BoletoViewer;
+```
+
+## 🔒 Segurança e Limitações
+
+### Rate Limiting
+- **100 requisições por minuto** por IP address
+- Headers de rate limit retornados em cada resposta:
+  ```http
+  X-RateLimit-Limit: 100
+  X-RateLimit-Remaining: 95
+  X-RateLimit-Reset: 1640995200
+  ```
+
+### Validações
+- **Expiração do link**: Links de boleto expiram após período configurado
+- **Código válido**: Validação de formato e existência do boleto
+- **Status do boleto**: Apenas boletos ativos podem ser acessados
+
+### Analytics e Logs
+- Todos os acessos são logados para analytics
+- Tracking de downloads de PDF
+- Métricas de conversão disponíveis no dashboard
+
+## 🎯 Casos de Uso
+
+### 1. Checkout Público
+```html
+<!-- Link direto para boleto -->
+<a href="https://api.debita.ai/v1/boleto/bol_abc123xyz" target="_blank">
+  Ver Boleto
+</a>
+
+<!-- Botão de download -->
+<a href="https://api.debita.ai/v1/boleto/bol_abc123xyz/pdf"
+   class="btn-download" target="_blank">
+  📥 Baixar PDF
+</a>
+```
+
+### 2. Email Marketing
+```text
+Olá João,
+
+Seu boleto está disponível para pagamento:
+
+🔗 Ver online: https://api.debita.ai/v1/boleto/bol_abc123xyz
+📥 Download PDF: https://api.debita.ai/v1/boleto/bol_abc123xyz/pdf
+
+Valor: R$ 150,00
+Vencimento: 31/01/2024
+```
+
+### 3. WhatsApp Business
+```text
+💰 *Boleto Disponível*
+
+Valor: R$ 150,00
+Vence em: 31/01/2024
+
+🔗 Ver boleto: https://api.debita.ai/v1/boleto/bol_abc123xyz
+📱 Ou pague com PIX direto pelo link acima (3% desconto)
+```
+
+### 4. Integração com ERP
+```python
+import requests
+
+def download_boleto_pdf(boleto_code, save_path):
+    """
+    Baixa PDF do boleto e salva localmente
+    """
+    url = f"https://api.debita.ai/v1/boleto/{boleto_code}/pdf"
+
+    response = requests.get(url, allow_redirects=True)
+
+    if response.status_code == 200:
+        with open(save_path, 'wb') as f:
+            f.write(response.content)
+        return True
+
+    return False
+
+# Uso
+success = download_boleto_pdf('bol_abc123xyz', './boletos/janeiro_2024.pdf')
+```
+
+## 📊 Monitoramento
+
+### Métricas Importantes
+- Taxa de visualização de boletos
+- Taxa de download de PDFs
+- Tempo de resposta dos endpoints
+- Erros 404 (links inválidos)
+- Erros 410 (links expirados)
+
+### Dashboard Analytics
+Acesse as métricas através do dashboard:
+- **Visualizações**: Quantos clientes acessaram o boleto
+- **Downloads**: Quantos PDFs foram baixados
+- **Taxa de conversão**: Visualizações → Downloads → Pagamentos
+
+---
+
+<Tip>
+**Próximo Passo**: Configure [webhooks](/webhooks/eventos) para receber notificações quando boletos forem pagos através destes links públicos.
+</Tip>

@@ -1,0 +1,263 @@
+---
+title: "Dev Mode"
+description: "Ambiente de desenvolvimento com sandbox completo para testar integrações sem riscos ou custos reais."
+---
+
+# Dev Mode - Ambiente de Desenvolvimento
+
+O Dev Mode da Debita AI oferece um ambiente sandbox completo para desenvolver e testar integrações sem processar transações reais ou incorrer custos. É o ambiente ideal para:
+
+- **Desenvolvimento**: Implementar integrações sem riscos
+- **Testes automatizados**: Criar suites de teste confiáveis
+- **Demos**: Apresentar funcionalidades para clientes
+- **Validação**: Testar fluxos antes de ir para produção
+
+<Warning>
+**Apenas para desenvolvimento**: Transações no Dev Mode são simuladas e não processam dinheiro real.
+</Warning>
+
+## 🔑 Chaves API de Desenvolvimento
+
+### Prefixo de Identificação
+Todas as chaves de desenvolvimento iniciam com `pk_sandbox_`:
+
+```bash
+# Exemplo de chave sandbox
+pk_sandbox_1a2b3c4d5e6f7g8h9i0j
+```
+
+### Obtendo suas Chaves
+1. Acesse o [Dashboard Debita](https://dashboard.debita.ai)
+2. Navegue para **Configurações → API Keys**
+3. Na seção **Sandbox**, copie sua chave de desenvolvimento
+4. Configure em suas variáveis de ambiente
+
+```bash
+# .env
+DEBITA_API_KEY=pk_sandbox_sua_chave_aqui
+DEBITA_ENVIRONMENT=sandbox
+```
+
+## 🚀 Recursos Disponíveis
+
+### Endpoints Funcionais
+Todos os endpoints da API funcionam normalmente no sandbox:
+
+- ✅ **PIX Dinâmico**: QR Codes válidos para teste
+- ✅ **PIX Estático**: QR Codes reutilizáveis
+- ✅ **Boletos**: PDFs reais para visualização
+- ✅ **Clientes**: CRUD completo
+- ✅ **Webhooks**: Notificações enviadas normalmente
+
+### Simulações Automáticas
+
+#### PIX Dinâmico
+```javascript
+// PIX criado no sandbox
+const pix = await createPixDynamic({
+  amount: 10000,
+  description: "Teste sandbox"
+});
+
+// Após 30 segundos: pagamento confirmado automaticamente
+// Webhook enviado: pix.payment.confirmed
+```
+
+#### PIX Estático
+```javascript
+// PIX estático pode receber múltiplos "pagamentos" simulados
+// Use o endpoint de simulação para testar diferentes cenários
+```
+
+#### Boletos
+```javascript
+// Boletos podem ser "pagos" via endpoint de simulação
+// Suporte a cenários: pagamento normal, atraso, cancelamento
+```
+
+## 🎮 Simulação de Pagamentos
+
+### PIX Dinâmico - Automático
+Pagamentos PIX dinâmicos são confirmados **automaticamente após 30 segundos** no sandbox.
+
+### PIX Estático - Manual
+Use o endpoint de simulação para gerar pagamentos:
+
+```bash
+curl -X POST https://api.debita.ai/v1/pix/simulate-payment \
+  -H "Authorization: Bearer pk_sandbox_sua_chave" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "pix_static_id": "pix_static_abc123",
+    "amount": 5000,
+    "payer_name": "João Silva Teste",
+    "payer_document": "123.456.789-09"
+  }'
+```
+
+### Boletos - Manual
+Simule pagamentos de boleto:
+
+```bash
+curl -X POST https://api.debita.ai/v1/boleto/simulate-payment \
+  -H "Authorization: Bearer pk_sandbox_sua_chave" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "boleto_id": "chg_boleto_xyz789",
+    "payment_date": "2024-01-15",
+    "amount": 50000
+  }'
+```
+
+## 🔔 Webhooks em Desenvolvimento
+
+### Configuração
+Webhooks funcionam normalmente no sandbox. Configure URLs locais para desenvolvimento:
+
+```bash
+# Usando ngrok para desenvolvimento local
+ngrok http 3000
+
+# Configure a URL no webhook
+curl -X POST https://api.debita.ai/v1/webhooks \
+  -H "Authorization: Bearer pk_sandbox_sua_chave" \
+  -d '{
+    "url": "https://abc123.ngrok.io/webhook/debita",
+    "events": ["pix.payment.confirmed", "boleto.payment.confirmed"]
+  }'
+```
+
+### Eventos Disponíveis
+Todos os eventos são enviados normalmente:
+- `pix.payment.confirmed`
+- `pix.payment.failed`
+- `pix.payment.expired`
+- `boleto.payment.confirmed`
+- `boleto.payment.expired`
+
+## 📊 Dados de Teste
+
+### CPFs Válidos para Teste
+```
+123.456.789-09 (João Silva)
+987.654.321-00 (Maria Santos)
+456.789.123-45 (Carlos Oliveira)
+```
+
+### CNPJs Válidos para Teste
+```
+12.345.678/0001-90 (Empresa Teste Ltda)
+98.765.432/0001-10 (Tech Solutions SA)
+```
+
+### Cartões de Teste (futuro)
+```
+4111 1111 1111 1111 (Visa - Aprovado)
+4000 0000 0000 0002 (Visa - Negado)
+5555 5555 5555 4444 (Mastercard - Aprovado)
+```
+
+## 🛠️ Ferramentas de Desenvolvimento
+
+### Postman Collection
+Baixe nossa collection oficial:
+```bash
+curl -o debita-sandbox.json \
+  https://api.debita.ai/postman/sandbox-collection.json
+```
+
+### Swagger/OpenAPI
+Documentação interativa disponível em:
+```
+https://api.debita.ai/swagger?env=sandbox
+```
+
+### SDKs com Sandbox
+```javascript
+// Node.js SDK
+import { DebitaAPI } from '@debita/node-sdk';
+
+const debita = new DebitaAPI({
+  apiKey: 'pk_sandbox_sua_chave',
+  environment: 'sandbox' // Força uso do sandbox
+});
+```
+
+## ⚠️ Limitações do Sandbox
+
+### Rate Limits Reduzidos
+- **PIX**: 100 requests/minuto
+- **Boletos**: 50 requests/minuto
+- **Webhooks**: 10 requests/minuto
+
+### Dados Não Persistem
+- Sandbox é resetado mensalmente
+- Use apenas para desenvolvimento/teste
+- Não armazene dados importantes
+
+### Algumas Validações Relaxadas
+- CEPs sempre válidos
+- Alguns campos opcionais aceitos como vazios
+- Timeouts menores para acelerar testes
+
+## 🔄 Ciclo de Desenvolvimento Recomendado
+
+### 1. Desenvolvimento Local
+```bash
+# 1. Configure ambiente local
+export DEBITA_API_KEY=pk_sandbox_sua_chave
+export DEBITA_ENVIRONMENT=sandbox
+
+# 2. Implemente funcionalidade
+npm run dev
+
+# 3. Teste com dados sandbox
+npm test
+```
+
+### 2. Teste de Integração
+```bash
+# 1. Configure webhooks com ngrok
+ngrok http 3000
+
+# 2. Execute testes end-to-end
+npm run test:integration
+
+# 3. Valide fluxos críticos
+npm run test:critical-path
+```
+
+### 3. Preparação para Produção
+```bash
+# 1. Execute todos os testes
+npm run test:all
+
+# 2. Valide configurações
+npm run validate:config
+
+# 3. Deploy para staging com chaves test
+npm run deploy:staging
+```
+
+## 📈 Monitoramento de Desenvolvimento
+
+### Logs de Requisições
+Todas as requisições sandbox são logadas no dashboard:
+- **Endpoint**: `/dashboard/logs/sandbox`
+- **Retenção**: 7 dias
+- **Filtros**: Por endpoint, status, período
+
+### Métricas de Teste
+Acompanhe métricas de desenvolvimento:
+- Requests por dia
+- Taxa de erro por endpoint
+- Tempo médio de resposta
+- Uso de rate limits
+
+<Card title="Indo para Produção" icon="rocket" href="/indo-para-producao">
+  Quando estiver pronto, aprenda como migrar para o ambiente de produção
+</Card>
+
+<Note>
+**Dúvidas sobre o sandbox?** Entre em contato via [suporte@debita.ai](mailto:suporte@debita.ai) ou no nosso [Discord](https://discord.gg/debita).
+</Note>

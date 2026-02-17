@@ -1,0 +1,912 @@
+---
+title: "Webhooks - Exemplos Práticos"
+description: "Implementações completas de webhooks para diferentes cenários: e-commerce, SaaS, marketplace e B2B com código pronto para produção."
+---
+
+# Exemplos Práticos de Webhooks
+
+Esta seção apresenta implementações completas e testadas de webhooks para diferentes tipos de negócio, incluindo tratamento de erros, logs e monitoramento.
+
+## 🛒 E-commerce: Sistema Completo
+
+### Processador de Webhooks E-commerce
+
+```javascript
+// ecommerce-webhook-processor.js
+const { EventEmitter } = require('events');
+
+class EcommerceWebhookProcessor extends EventEmitter {
+  constructor(dependencies) {
+    super();
+    this.db = dependencies.database;
+    this.emailService = dependencies.emailService;
+    this.inventoryService = dependencies.inventoryService;
+    this.fulfillmentService = dependencies.fulfillmentService;
+    this.analyticsService = dependencies.analyticsService;
+
+    this.setupEventHandlers();
+  }
+
+  setupEventHandlers() {
+    this.on('payment.confirmed', this.handlePaymentConfirmed.bind(this));
+    this.on('payment.failed', this.handlePaymentFailed.bind(this));
+    this.on('payment.expired', this.handlePaymentExpired.bind(this));
+    this.on('refund.completed', this.handleRefundCompleted.bind(this));
+  }
+
+  async processWebhook(event) {
+    const startTime = Date.now();
+
+    try {
+      // Log do evento recebido
+      await this.logWebhookEvent(event, 'received');
+
+      // Verificar duplicação
+      if (await this.isDuplicateEvent(event)) {
+        console.log(`Evento duplicado ignorado: ${event.data.id}`);
+        return { status: 'duplicate', processed: false };
+      }
+
+      // Emitir evento para processamento
+      this.emit(event.event, event.data, event);
+
+      // Log de sucesso
+      const processingTime = Date.now() - startTime;
+      await this.logWebhookEvent(event, 'processed', { processingTime });
+
+      return { status: 'success', processed: true, processingTime };
+    } catch (error) {
+      // Log de erro
+      await this.logWebhookEvent(event, 'error', { error: error.message });
+      throw error;
+    }
+  }
+
+  async handlePaymentConfirmed(paymentData) {
+    console.log(`💰 Pagamento confirmado: ${paymentData.id}`);
+
+    try {
+      // 1. Atualizar status do pedido
+      await this.db.orders.update(
+        { external_id: paymentData.external_id },
+        {
+          status: 'paid',
+          payment_id: paymentData.id,
+          payment_method: paymentData.method,
+          payment_confirmed_at: new Date(paymentData.paid_at),
+          amount_paid: paymentData.amount,
+          fees: paymentData.fee?.amount || 0,
+          net_amount: paymentData.net_amount || paymentData.amount
+        }
+      );
+
+      // 2. Confirmar estoque (remover reserva e decrementar)
+      const order = await this.db.orders.findOne({
+        external_id: paymentData.external_id
+      });
+
+      if (order) {
+        await this.inventoryService.confirmReservation({
+          orderId: order.id,
+          items: order.items
+        });
+
+        // 3. Enviar email de confirmação
+        await this.emailService.sendPaymentConfirmation({
+          email: paymentData.customer.email,
+          customerName: paymentData.customer.name,
+          orderNumber: order.number,
+          amount: paymentData.amount,
+          paymentMethod: paymentData.method,
+          items: order.items
+        });
+
+        // 4. Acionar fulfillment
+        await this.fulfillmentService.processOrder({
+          orderId: order.id,
+          priority: order.priority || 'normal',
+          shippingAddress: order.shipping_address
+        });
+
+        // 5. Registrar conversão para analytics
+        await this.analyticsService.trackConversion({
+          orderId: order.id,
+          customerId: paymentData.customer.id,
+          amount: paymentData.amount,
+          paymentMethod: paymentData.method,
+          metadata: paymentData.metadata
+        });
+
+        console.log(`✅ Pedido ${order.number} processado completamente`);
+      }
+    } catch (error) {
+      console.error('Erro ao processar pagamento confirmado:', error);
+
+      // Alertar equipe sobre falha crítica
+      await this.sendCriticalAlert('payment_processing_failed', {
+        paymentId: paymentData.id,
+        externalId: paymentData.external_id,
+        error: error.message
+      });
+
+      throw error;
+    }
+  }
+
+  async handlePaymentFailed(paymentData) {
+    console.log(`❌ Pagamento falhou: ${paymentData.id}`);
+
+    try {
+      // 1. Atualizar status do pedido
+      await this.db.orders.update(
+        { external_id: paymentData.external_id },
+        {
+          status: 'payment_failed',
+          failure_reason: paymentData.failure?.code,
+          failure_message: paymentData.failure?.message,
+          failed_at: new Date()
+        }
+      );
+
+      // 2. Liberar estoque reservado
+      const order = await this.db.orders.findOne({
+        external_id: paymentData.external_id
+      });
+
+      if (order) {
+        await this.inventoryService.releaseReservation(order.id);
+
+        // 3. Enviar email de falha com sugestões
+        await this.emailService.sendPaymentFailed({
+          email: paymentData.customer.email,
+          customerName: paymentData.customer.name,
+          orderNumber: order.number,
+          failureReason: paymentData.failure?.message,
+          retryUrl: `${process.env.FRONTEND_URL}/checkout/${order.id}/retry`,
+          alternativePaymentMethods: ['boleto', 'pix']
+        });
+
+        // 4. Agendar email de carrinho abandonado
+        await this.emailService.scheduleAbandonedCart({
+          orderId: order.id,
+          email: paymentData.customer.email,
+          delayHours: 2
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao processar falha de pagamento:', error);
+      throw error;
+    }
+  }
+
+  async handlePaymentExpired(paymentData) {
+    console.log(`⏰ Pagamento expirou: ${paymentData.id}`);
+
+    try {
+      // 1. Atualizar status do pedido
+      await this.db.orders.update(
+        { external_id: paymentData.external_id },
+        {
+          status: 'expired',
+          expired_at: new Date(paymentData.expired_at)
+        }
+      );
+
+      // 2. Liberar estoque
+      const order = await this.db.orders.findOne({
+        external_id: paymentData.external_id
+      });
+
+      if (order) {
+        await this.inventoryService.releaseReservation(order.id);
+
+        // 3. Email de carrinho abandonado com incentivo
+        await this.emailService.sendAbandonedCart({
+          email: paymentData.customer.email,
+          customerName: paymentData.customer.name,
+          orderNumber: order.number,
+          items: order.items,
+          recoveryUrl: `${process.env.FRONTEND_URL}/cart/recover/${order.recovery_token}`,
+          discountCode: await this.generateRecoveryDiscount(order.id)
+        });
+
+        // 4. Analytics de abandono
+        await this.analyticsService.trackAbandonment({
+          orderId: order.id,
+          stage: 'payment_expired',
+          amount: paymentData.amount,
+          metadata: paymentData.metadata
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao processar expiração:', error);
+      throw error;
+    }
+  }
+
+  async handleRefundCompleted(refundData) {
+    console.log(`↩️ Reembolso processado: ${refundData.id}`);
+
+    try {
+      // 1. Atualizar pedido
+      await this.db.orders.update(
+        { external_id: refundData.charge.external_id },
+        {
+          status: 'refunded',
+          refund_id: refundData.id,
+          refunded_amount: refundData.amount,
+          refunded_at: new Date(refundData.completed_at),
+          refund_reason: refundData.reason
+        }
+      );
+
+      // 2. Processar logística reversa
+      const order = await this.db.orders.findOne({
+        external_id: refundData.charge.external_id
+      });
+
+      if (order && refundData.amount === order.amount_paid) {
+        // Reembolso total - iniciar logística reversa
+        await this.fulfillmentService.initiateReturn({
+          orderId: order.id,
+          reason: refundData.reason,
+          returnType: 'full'
+        });
+
+        // Restaurar estoque
+        await this.inventoryService.restoreStock({
+          orderId: order.id,
+          items: order.items
+        });
+      }
+
+      // 3. Notificar cliente
+      await this.emailService.sendRefundConfirmation({
+        email: refundData.charge.customer.email,
+        customerName: refundData.charge.customer.name,
+        orderNumber: order.number,
+        refundAmount: refundData.amount,
+        refundMethod: refundData.method,
+        estimatedDays: refundData.estimated_days || 5
+      });
+
+    } catch (error) {
+      console.error('Erro ao processar reembolso:', error);
+      throw error;
+    }
+  }
+
+  // Métodos auxiliares
+  async isDuplicateEvent(event) {
+    const eventKey = `${event.timestamp}_${event.data.id}`;
+    const exists = await this.db.processed_webhooks.findOne({
+      event_key: eventKey
+    });
+
+    if (!exists) {
+      await this.db.processed_webhooks.create({
+        event_key: eventKey,
+        event_type: event.event,
+        processed_at: new Date()
+      });
+      return false;
+    }
+
+    return true;
+  }
+
+  async logWebhookEvent(event, status, metadata = {}) {
+    await this.db.webhook_logs.create({
+      event_type: event.event,
+      charge_id: event.data.id,
+      external_id: event.data.external_id,
+      status: status,
+      metadata: JSON.stringify(metadata),
+      timestamp: new Date()
+    });
+  }
+
+  async generateRecoveryDiscount(orderId) {
+    // Gerar cupom de desconto para recuperação de carrinho
+    const discountCode = `VOLTA${orderId}`.toUpperCase();
+
+    await this.db.discount_coupons.create({
+      code: discountCode,
+      discount_percent: 10,
+      valid_until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias
+      single_use: true,
+      order_id: orderId
+    });
+
+    return discountCode;
+  }
+
+  async sendCriticalAlert(alertType, details) {
+    // Integrar com sistema de alertas (Slack, PagerDuty, etc.)
+    console.error(`🚨 ALERTA CRÍTICO [${alertType}]:`, details);
+
+    // Exemplo: Slack webhook
+    const slackPayload = {
+      text: `🚨 Alerta Crítico - E-commerce`,
+      attachments: [{
+        color: 'danger',
+        fields: [
+          { title: 'Tipo', value: alertType, short: true },
+          { title: 'Detalhes', value: JSON.stringify(details, null, 2), short: false }
+        ],
+        ts: Math.floor(Date.now() / 1000)
+      }]
+    };
+
+    // await fetch(process.env.SLACK_WEBHOOK_URL, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(slackPayload)
+    // });
+  }
+}
+
+module.exports = EcommerceWebhookProcessor;
+```
+
+### Endpoint Express Completo
+
+```javascript
+// routes/webhooks.js
+const express = require('express');
+const { createWebhookMiddleware } = require('../middleware/webhook-middleware');
+const EcommerceWebhookProcessor = require('../processors/ecommerce-webhook-processor');
+
+const router = express.Router();
+
+// Middleware de segurança
+const webhookMiddleware = createWebhookMiddleware(
+  process.env.DEBITA_WEBHOOK_SECRET,
+  {
+    maxPayloadSize: 1024 * 1024, // 1MB
+    rateLimit: true
+  }
+);
+
+// Processador de eventos
+const processor = new EcommerceWebhookProcessor({
+  database: require('../services/database'),
+  emailService: require('../services/email'),
+  inventoryService: require('../services/inventory'),
+  fulfillmentService: require('../services/fulfillment'),
+  analyticsService: require('../services/analytics')
+});
+
+// Endpoint principal
+router.post('/debita',
+  express.raw({ type: 'application/json' }),
+  webhookMiddleware,
+  async (req, res) => {
+    const startTime = Date.now();
+
+    try {
+      const event = JSON.parse(req.body);
+
+      // Processar webhook
+      const result = await processor.processWebhook(event);
+
+      // Métricas de performance
+      const processingTime = Date.now() - startTime;
+      console.log(`Webhook processado em ${processingTime}ms`, {
+        event: event.event,
+        chargeId: event.data.id,
+        status: result.status
+      });
+
+      // Resposta rápida
+      res.status(200).json({
+        received: true,
+        processed: result.processed,
+        processingTime: processingTime
+      });
+
+    } catch (error) {
+      const processingTime = Date.now() - startTime;
+
+      console.error('Erro no webhook:', {
+        error: error.message,
+        processingTime: processingTime,
+        event: req.body ? JSON.parse(req.body).event : 'unknown'
+      });
+
+      // Para erros de processamento, ainda retorna 200
+      // para evitar retry desnecessário
+      if (error.message.includes('duplicate') || error.message.includes('not found')) {
+        return res.status(200).json({
+          received: true,
+          processed: false,
+          error: error.message
+        });
+      }
+
+      // Para outros erros, retorna 500 para trigger retry
+      res.status(500).json({
+        received: true,
+        processed: false,
+        error: 'Internal processing error'
+      });
+    }
+  }
+);
+
+// Endpoint de health check para webhooks
+router.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version
+  });
+});
+
+// Endpoint de teste (apenas em desenvolvimento)
+if (process.env.NODE_ENV === 'development') {
+  router.post('/test', express.json(), async (req, res) => {
+    try {
+      const testEvent = {
+        event: 'webhook.test',
+        timestamp: new Date().toISOString(),
+        data: {
+          id: 'test_' + Date.now(),
+          message: 'Test webhook event',
+          external_id: 'test_order_123'
+        }
+      };
+
+      await processor.processWebhook(testEvent);
+
+      res.json({ success: true, message: 'Test webhook processed' });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+}
+
+module.exports = router;
+```
+
+## 💼 SaaS: Gerenciamento de Assinaturas
+
+### Processador SaaS
+
+```javascript
+// saas-subscription-processor.js
+class SaasSubscriptionProcessor {
+  constructor(dependencies) {
+    this.db = dependencies.database;
+    this.billingService = dependencies.billingService;
+    this.emailService = dependencies.emailService;
+    this.provisioningService = dependencies.provisioningService;
+  }
+
+  async handlePaymentConfirmed(paymentData) {
+    const subscription = await this.findSubscriptionByExternalId(
+      paymentData.external_id
+    );
+
+    if (!subscription) {
+      console.error('Assinatura não encontrada:', paymentData.external_id);
+      return;
+    }
+
+    try {
+      // 1. Atualizar status da assinatura
+      await this.db.subscriptions.update(
+        { id: subscription.id },
+        {
+          status: 'active',
+          last_payment_at: new Date(paymentData.paid_at),
+          next_billing_date: this.calculateNextBilling(subscription),
+          failed_payment_count: 0
+        }
+      );
+
+      // 2. Registrar pagamento
+      await this.db.payments.create({
+        subscription_id: subscription.id,
+        charge_id: paymentData.id,
+        amount: paymentData.amount,
+        status: 'completed',
+        paid_at: new Date(paymentData.paid_at),
+        payment_method: paymentData.method
+      });
+
+      // 3. Provisionar/renovar serviços
+      await this.provisioningService.renewServices({
+        customerId: subscription.customer_id,
+        planId: subscription.plan_id,
+        billingCycle: subscription.billing_cycle
+      });
+
+      // 4. Email de confirmação
+      await this.emailService.sendSubscriptionRenewal({
+        email: subscription.customer.email,
+        customerName: subscription.customer.name,
+        planName: subscription.plan.name,
+        amount: paymentData.amount,
+        nextBillingDate: this.calculateNextBilling(subscription)
+      });
+
+      // 5. Agendar próxima cobrança
+      await this.scheduleNextBilling(subscription);
+
+      console.log(`✅ Assinatura ${subscription.id} renovada com sucesso`);
+    } catch (error) {
+      console.error('Erro ao processar renovação:', error);
+      throw error;
+    }
+  }
+
+  async handlePaymentFailed(paymentData) {
+    const subscription = await this.findSubscriptionByExternalId(
+      paymentData.external_id
+    );
+
+    if (!subscription) return;
+
+    try {
+      const failureCount = subscription.failed_payment_count + 1;
+      const maxFailures = 3;
+
+      await this.db.subscriptions.update(
+        { id: subscription.id },
+        {
+          failed_payment_count: failureCount,
+          last_failure_at: new Date(),
+          status: failureCount >= maxFailures ? 'suspended' : 'active'
+        }
+      );
+
+      if (failureCount >= maxFailures) {
+        // Suspender serviços
+        await this.provisioningService.suspendServices(subscription.customer_id);
+
+        // Email de suspensão
+        await this.emailService.sendSubscriptionSuspended({
+          email: subscription.customer.email,
+          customerName: subscription.customer.name,
+          planName: subscription.plan.name,
+          failureReason: paymentData.failure?.message,
+          updatePaymentUrl: `${process.env.FRONTEND_URL}/billing/update`
+        });
+      } else {
+        // Agendar retry
+        await this.schedulePaymentRetry(subscription, failureCount);
+
+        // Email de falha com retry
+        await this.emailService.sendPaymentFailedRetry({
+          email: subscription.customer.email,
+          customerName: subscription.customer.name,
+          planName: subscription.plan.name,
+          retryDate: this.calculateRetryDate(failureCount),
+          updatePaymentUrl: `${process.env.FRONTEND_URL}/billing/update`
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao processar falha de assinatura:', error);
+      throw error;
+    }
+  }
+
+  calculateNextBilling(subscription) {
+    const lastPayment = subscription.last_payment_at || subscription.created_at;
+    const nextBilling = new Date(lastPayment);
+
+    switch (subscription.billing_cycle) {
+      case 'monthly':
+        nextBilling.setMonth(nextBilling.getMonth() + 1);
+        break;
+      case 'yearly':
+        nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+        break;
+      case 'quarterly':
+        nextBilling.setMonth(nextBilling.getMonth() + 3);
+        break;
+    }
+
+    return nextBilling;
+  }
+
+  async scheduleNextBilling(subscription) {
+    const nextDate = this.calculateNextBilling(subscription);
+
+    await this.billingService.scheduleBilling({
+      subscriptionId: subscription.id,
+      scheduledFor: nextDate,
+      amount: subscription.plan.price,
+      description: `${subscription.plan.name} - ${subscription.billing_cycle}`
+    });
+  }
+}
+```
+
+## 🏪 Marketplace: Split de Pagamentos
+
+### Processador Marketplace
+
+```javascript
+// marketplace-processor.js
+class MarketplaceProcessor {
+  constructor(dependencies) {
+    this.db = dependencies.database;
+    this.splitService = dependencies.splitService;
+    this.emailService = dependencies.emailService;
+  }
+
+  async handlePaymentConfirmed(paymentData) {
+    console.log(`💰 Pagamento marketplace confirmado: ${paymentData.id}`);
+
+    try {
+      // 1. Buscar dados da transação
+      const order = await this.db.orders.findOne({
+        external_id: paymentData.external_id
+      });
+
+      if (!order) {
+        throw new Error('Pedido não encontrado');
+      }
+
+      // 2. Calcular split entre vendedores
+      const splitCalculation = await this.calculateSplit(order, paymentData);
+
+      // 3. Processar transferências
+      for (const split of splitCalculation.splits) {
+        await this.processSplit(split, paymentData);
+      }
+
+      // 4. Atualizar status do pedido
+      await this.db.orders.update(
+        { id: order.id },
+        {
+          status: 'paid',
+          payment_confirmed_at: new Date(paymentData.paid_at),
+          splits: JSON.stringify(splitCalculation.splits),
+          marketplace_fee: splitCalculation.marketplaceFee,
+          net_amount_sellers: splitCalculation.totalSellers
+        }
+      );
+
+      // 5. Notificar vendedores
+      await this.notifySellers(order, splitCalculation.splits);
+
+      // 6. Notificar comprador
+      await this.emailService.sendMarketplacePurchaseConfirmation({
+        email: paymentData.customer.email,
+        customerName: paymentData.customer.name,
+        orderNumber: order.number,
+        items: order.items,
+        sellers: splitCalculation.sellers
+      });
+
+      console.log(`✅ Split processado para pedido ${order.number}`);
+    } catch (error) {
+      console.error('Erro no processamento marketplace:', error);
+      throw error;
+    }
+  }
+
+  async calculateSplit(order, paymentData) {
+    const marketplaceFeePercent = 0.05; // 5% de taxa
+    const totalAmount = paymentData.amount;
+    const marketplaceFee = Math.floor(totalAmount * marketplaceFeePercent);
+
+    const splits = [];
+    const sellers = new Map();
+    let totalSellers = 0;
+
+    // Agrupar itens por vendedor
+    for (const item of order.items) {
+      const sellerId = item.seller_id;
+
+      if (!sellers.has(sellerId)) {
+        sellers.set(sellerId, {
+          seller_id: sellerId,
+          seller: item.seller,
+          items: [],
+          subtotal: 0
+        });
+      }
+
+      const sellerData = sellers.get(sellerId);
+      sellerData.items.push(item);
+      sellerData.subtotal += item.price * item.quantity;
+    }
+
+    // Calcular split para cada vendedor
+    for (const [sellerId, sellerData] of sellers) {
+      const sellerGross = sellerData.subtotal;
+      const sellerFee = Math.floor(sellerGross * marketplaceFeePercent);
+      const sellerNet = sellerGross - sellerFee;
+
+      splits.push({
+        seller_id: sellerId,
+        seller_name: sellerData.seller.name,
+        gross_amount: sellerGross,
+        fee_amount: sellerFee,
+        net_amount: sellerNet,
+        items: sellerData.items
+      });
+
+      totalSellers += sellerNet;
+    }
+
+    return {
+      splits,
+      marketplaceFee,
+      totalSellers,
+      sellers: Array.from(sellers.values())
+    };
+  }
+
+  async processSplit(split, paymentData) {
+    try {
+      // 1. Criar transferência para vendedor
+      await this.splitService.createTransfer({
+        sellerId: split.seller_id,
+        amount: split.net_amount,
+        referenceId: paymentData.id,
+        description: `Venda - Pedido ${paymentData.external_id}`,
+        scheduledFor: this.calculateTransferDate() // D+30 padrão
+      });
+
+      // 2. Registrar no banco
+      await this.db.seller_splits.create({
+        payment_id: paymentData.id,
+        seller_id: split.seller_id,
+        gross_amount: split.gross_amount,
+        fee_amount: split.fee_amount,
+        net_amount: split.net_amount,
+        transfer_scheduled_for: this.calculateTransferDate(),
+        status: 'scheduled'
+      });
+
+      console.log(`💸 Split agendado para vendedor ${split.seller_id}: R$ ${(split.net_amount / 100).toFixed(2)}`);
+    } catch (error) {
+      console.error(`Erro ao processar split para vendedor ${split.seller_id}:`, error);
+      throw error;
+    }
+  }
+
+  async notifySellers(order, splits) {
+    for (const split of splits) {
+      await this.emailService.sendSellerSaleConfirmation({
+        email: split.seller.email,
+        sellerName: split.seller_name,
+        orderNumber: order.number,
+        customerName: order.customer.name,
+        items: split.items,
+        grossAmount: split.gross_amount,
+        feeAmount: split.fee_amount,
+        netAmount: split.net_amount,
+        transferDate: this.calculateTransferDate()
+      });
+    }
+  }
+
+  calculateTransferDate() {
+    // D+30 para marketplace
+    const transferDate = new Date();
+    transferDate.setDate(transferDate.getDate() + 30);
+    return transferDate;
+  }
+}
+```
+
+## 📊 Dashboard de Monitoramento
+
+### Sistema de Métricas em Tempo Real
+
+```javascript
+// webhook-metrics-dashboard.js
+class WebhookMetricsDashboard {
+  constructor(redisClient) {
+    this.redis = redisClient;
+  }
+
+  async recordWebhookMetric(event, status, processingTime) {
+    const now = Date.now();
+    const minute = Math.floor(now / 60000) * 60000;
+
+    // Métricas por minuto
+    await this.redis.hincrby(`webhook:metrics:${minute}`, 'total', 1);
+    await this.redis.hincrby(`webhook:metrics:${minute}`, status, 1);
+    await this.redis.hincrby(`webhook:metrics:${minute}`, `${event.event}:total`, 1);
+
+    // Tempo de processamento médio
+    await this.redis.lpush(`webhook:times:${minute}`, processingTime);
+    await this.redis.expire(`webhook:times:${minute}`, 3600);
+
+    // Limpar métricas antigas (manter últimas 24h)
+    if (now % 300000 < 1000) { // A cada 5 minutos
+      await this.cleanOldMetrics();
+    }
+  }
+
+  async getDashboardData() {
+    const now = Date.now();
+    const minutes = 60; // Últimos 60 minutos
+
+    const data = {
+      timeline: [],
+      summary: {
+        total: 0,
+        success: 0,
+        error: 0,
+        avgProcessingTime: 0
+      },
+      byEvent: {},
+      recentErrors: []
+    };
+
+    // Coletar dados dos últimos 60 minutos
+    for (let i = 0; i < minutes; i++) {
+      const minute = Math.floor((now - i * 60000) / 60000) * 60000;
+      const metrics = await this.redis.hgetall(`webhook:metrics:${minute}`);
+      const times = await this.redis.lrange(`webhook:times:${minute}`, 0, -1);
+
+      if (metrics.total) {
+        const avgTime = times.length > 0 ?
+          times.reduce((sum, time) => sum + parseInt(time), 0) / times.length : 0;
+
+        data.timeline.push({
+          timestamp: minute,
+          total: parseInt(metrics.total) || 0,
+          success: parseInt(metrics.success) || 0,
+          error: parseInt(metrics.error) || 0,
+          avgProcessingTime: Math.round(avgTime)
+        });
+
+        // Somar para resumo
+        data.summary.total += parseInt(metrics.total) || 0;
+        data.summary.success += parseInt(metrics.success) || 0;
+        data.summary.error += parseInt(metrics.error) || 0;
+      }
+    }
+
+    // Calcular média geral de tempo
+    const totalTimes = data.timeline.reduce((sum, t) => sum + (t.avgProcessingTime * t.total), 0);
+    data.summary.avgProcessingTime = data.summary.total > 0 ?
+      Math.round(totalTimes / data.summary.total) : 0;
+
+    // Taxa de sucesso
+    data.summary.successRate = data.summary.total > 0 ?
+      ((data.summary.success / data.summary.total) * 100).toFixed(2) : 0;
+
+    return data;
+  }
+
+  async cleanOldMetrics() {
+    const now = Date.now();
+    const cutoff = now - (24 * 60 * 60 * 1000); // 24 horas atrás
+
+    const keys = await this.redis.keys('webhook:metrics:*');
+
+    for (const key of keys) {
+      const timestamp = parseInt(key.split(':')[2]);
+      if (timestamp < cutoff) {
+        await this.redis.del(key);
+        await this.redis.del(key.replace('metrics', 'times'));
+      }
+    }
+  }
+}
+
+// Express route para dashboard
+router.get('/metrics', async (req, res) => {
+  const dashboard = new WebhookMetricsDashboard(redisClient);
+  const data = await dashboard.getDashboardData();
+  res.json(data);
+});
+```
+
+---
+
+Estes exemplos mostram implementações completas e prontas para produção de webhooks para diferentes cenários de negócio, incluindo tratamento robusto de erros, logging estruturado e monitoramento em tempo real.
+
+<Tip>
+**Próximo Passo**: Configure dados de teste válidos usando nossa seção de [dados de teste](/testes/dados-teste) para sandbox.
+</Tip>

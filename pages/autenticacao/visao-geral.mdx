@@ -1,0 +1,397 @@
+---
+title: "Visão Geral da Autenticação"
+description: "Como autenticar suas requisições na API Debita AI usando chaves Bearer e headers obrigatórios."
+---
+
+# Autenticação na API Debita AI
+
+A API Debita AI utiliza **Bearer Token Authentication** com chaves API que identificam automaticamente o ambiente de execução baseado no prefixo da chave.
+
+## 🔑 Tipos de Chaves API
+
+A Debita AI oferece diferentes tipos de chaves API para diferentes casos de uso:
+
+<CardGroup cols={3}>
+  <Card title="Developer Sandbox" icon="flask">
+    **pk_sandbox_**
+
+    Ambiente de desenvolvimento com dados fictícios e limites altos. Ideal para integração inicial.
+  </Card>
+  <Card title="Test" icon="bug">
+    **pk_test_**
+
+    Ambiente de homologação com dados reais mas sem cobrança efetiva.
+  </Card>
+  <Card title="Live" icon="shield-check">
+    **pk_live_**
+
+    Ambiente de produção com transações reais e cobrança efetiva.
+  </Card>
+</CardGroup>
+
+## 🎯 Detecção Automática de Ambiente
+
+A API detecta automaticamente o ambiente baseado no prefixo da sua chave:
+
+```javascript
+// Ambiente será automaticamente detectado
+const apiKey = 'pk_sandbox_abc123...'; // → Developer Sandbox
+const apiKey = 'pk_test_abc123...';    // → Test
+const apiKey = 'pk_live_abc123...';    // → Live
+```
+
+### Comportamentos por Ambiente
+
+| Recurso | Developer Sandbox | Test | Live |
+|---------|---------|------|------|
+| **Rate Limiting** | 50.000 req/key | 10.000 req/key | 1.000 req/key |
+| **Dados de Teste** | ✅ Aceita CPF/CNPJ fictícios | ⚠️ Precisa de dados válidos | ❌ Apenas dados reais |
+| **Pagamentos Reais** | ❌ Simulados | ❌ Simulados | ✅ Reais |
+| **Webhooks** | ✅ Enviados | ✅ Enviados | ✅ Enviados |
+| **Debug Headers** | ✅ Disponíveis | ✅ Disponíveis | ❌ Não disponíveis |
+
+## 🔧 Como Autenticar
+
+### Header Authorization
+
+Todas as requisições devem incluir o header `Authorization` com Bearer Token:
+
+```http
+Authorization: Bearer pk_sandbox_sua_chave_aqui
+```
+
+### Exemplo de Requisição
+
+```javascript
+const response = await fetch('https://api.debita.ai/v1/charges/pix/dynamic', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer pk_sandbox_sua_chave_aqui',
+    'Content-Type': 'application/json',
+    'Idempotency-Key': generateUuid()
+  },
+  body: JSON.stringify({
+    amount: 10000,
+    description: 'Pagamento teste'
+  })
+});
+```
+
+## 📋 Headers Obrigatórios
+
+### Authorization (Obrigatório)
+```http
+Authorization: Bearer {sua_chave_api}
+```
+
+### Content-Type (Obrigatório para POST/PUT)
+```http
+Content-Type: application/json
+```
+
+### Idempotency-Key (Recomendado)
+```http
+Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000
+```
+
+<Warning>
+**Idempotência**: Use `Idempotency-Key` único para evitar cobranças duplicadas em caso de timeout ou erro de rede. Use UUIDs v4.
+</Warning>
+
+## ⚡ Rate Limiting
+
+A API aplica limites diferentes baseados no tipo de chave:
+
+### Limites por Ambiente
+
+| Ambiente | Requests por Chave | Observações |
+|----------|-------------------|-------------|
+| **Developer Sandbox** | 50.000 | Limite alto para desenvolvimento |
+| **Test** | 10.000 | Para homologação |
+| **Live** | 1.000 | Produção com limite controlado |
+
+### Headers de Rate Limit
+
+A API retorna headers informativos sobre o rate limiting:
+
+```http
+X-RateLimit-Limit: 50000
+X-RateLimit-Remaining: 49995
+X-RateLimit-Reset: 1640995200
+```
+
+### Tratamento de Rate Limit
+
+Quando o limite é excedido, a API retorna status `429`:
+
+```json
+{
+  "error": {
+    "type": "rate_limit_exceeded",
+    "message": "Too many requests. Limit exceeded for your API key",
+    "retry_after": 3600
+  }
+}
+```
+
+## 🔐 Segurança
+
+### HTTPS Obrigatório
+
+Todas as requisições devem usar HTTPS. HTTP não é suportado:
+
+```javascript
+// ✅ Correto
+const url = 'https://api.debita.ai/v1/charges';
+
+// ❌ Incorreto - gerará erro
+const url = 'http://api.debita.ai/v1/charges';
+```
+
+### Validação de Chave
+
+A API valida o formato e assinatura da chave em cada requisição:
+
+```javascript
+// ✅ Formatos válidos
+pk_sandbox_abc123def456ghi789  // Developer sandbox
+pk_test_abc123def456ghi789     // Test environment
+pk_live_abc123def456ghi789     // Production
+
+// ❌ Formatos inválidos
+sandbox_abc123     // Falta prefixo pk_
+pk_invalid_abc     // Prefixo não reconhecido
+pk_test_123        // Muito curto (mínimo 32 chars após prefixo)
+```
+
+## 🌍 URLs de Ambiente
+
+### API Base URL
+```
+https://api.debita.ai
+```
+
+<Info>
+**URL Única**: Diferente de outras APIs, a Debita AI usa uma única URL base. O ambiente é detectado automaticamente pela chave API.
+</Info>
+
+### Endpoints Disponíveis
+
+```javascript
+// Base da API
+const BASE_URL = 'https://api.debita.ai/v1';
+
+// Endpoints principais
+const ENDPOINTS = {
+  // PIX
+  pixDynamic: `${BASE_URL}/charges/pix/dynamic`,
+  pixStatic: `${BASE_URL}/charges/pix/static`,
+
+  // Boleto
+  boleto: `${BASE_URL}/charges/boleto`,
+
+  // Clientes
+  customers: `${BASE_URL}/customers`,
+
+  // Webhooks
+  webhooks: `${BASE_URL}/webhooks`
+};
+```
+
+## 🔄 Exemplo Completo
+
+### Node.js
+```javascript
+const axios = require('axios');
+const { v4: uuidv4 } = require('uuid');
+
+class DebitaClient {
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+    this.baseURL = 'https://api.debita.ai/v1';
+
+    // Detectar ambiente automaticamente
+    this.environment = this.detectEnvironment(apiKey);
+  }
+
+  detectEnvironment(key) {
+    if (key.startsWith('pk_sandbox_')) return 'developer-sandbox';
+    if (key.startsWith('pk_test_')) return 'test';
+    if (key.startsWith('pk_live_')) return 'live';
+    throw new Error('Chave API inválida');
+  }
+
+  async request(method, endpoint, data = null) {
+    const headers = {
+      'Authorization': `Bearer ${this.apiKey}`,
+      'Content-Type': 'application/json',
+    };
+
+    // Adicionar Idempotency-Key para operações de escrita
+    if (['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
+      headers['Idempotency-Key'] = uuidv4();
+    }
+
+    try {
+      const response = await axios({
+        method,
+        url: `${this.baseURL}${endpoint}`,
+        data,
+        headers,
+        timeout: 30000 // 30 segundos
+      });
+
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 429) {
+        const retryAfter = error.response.headers['retry-after'] || 60;
+        throw new Error(`Rate limit excedido. Tente novamente em ${retryAfter} segundos.`);
+      }
+      throw error;
+    }
+  }
+
+  async createPixCharge(data) {
+    return this.request('POST', '/charges/pix/dynamic', data);
+  }
+}
+
+// Uso
+const client = new DebitaClient('pk_sandbox_sua_chave_aqui');
+
+async function exemploUso() {
+  try {
+    const charge = await client.createPixCharge({
+      amount: 10000,
+      description: 'Pagamento teste',
+      customer: {
+        name: 'João Silva',
+        document: '111.444.777-35',
+        email: 'joao@email.com'
+      }
+    });
+
+    console.log('Cobrança criada:', charge);
+  } catch (error) {
+    console.error('Erro:', error.message);
+  }
+}
+```
+
+### Python
+```python
+import requests
+import uuid
+from typing import Optional, Dict, Any
+
+class DebitaClient:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = 'https://api.debita.ai/v1'
+        self.environment = self._detect_environment(api_key)
+
+    def _detect_environment(self, key: str) -> str:
+        if key.startswith('pk_sandbox_'):
+            return 'developer-sandbox'
+        elif key.startswith('pk_test_'):
+            return 'test'
+        elif key.startswith('pk_live_'):
+            return 'live'
+        else:
+            raise ValueError('Chave API inválida')
+
+    def request(self, method: str, endpoint: str, data: Optional[Dict[Any, Any]] = None):
+        headers = {
+            'Authorization': f'Bearer {self.api_key}',
+            'Content-Type': 'application/json'
+        }
+
+        # Adicionar Idempotency-Key para operações de escrita
+        if method.upper() in ['POST', 'PUT', 'PATCH']:
+            headers['Idempotency-Key'] = str(uuid.uuid4())
+
+        url = f"{self.base_url}{endpoint}"
+
+        try:
+            response = requests.request(
+                method=method,
+                url=url,
+                json=data,
+                headers=headers,
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                retry_after = e.response.headers.get('retry-after', 60)
+                raise Exception(f'Rate limit excedido. Tente novamente em {retry_after} segundos.')
+            raise
+
+    def create_pix_charge(self, data: Dict[str, Any]):
+        return self.request('POST', '/charges/pix/dynamic', data)
+
+# Uso
+client = DebitaClient('pk_sandbox_sua_chave_aqui')
+
+charge = client.create_pix_charge({
+    'amount': 10000,
+    'description': 'Pagamento teste',
+    'customer': {
+        'name': 'João Silva',
+        'document': '111.444.777-35',
+        'email': 'joao@email.com'
+    }
+})
+
+print(f"Cobrança criada: {charge}")
+```
+
+## 🚨 Erros Comuns
+
+### 401 - Unauthorized
+```json
+{
+  "error": {
+    "type": "unauthorized",
+    "message": "Invalid API key"
+  }
+}
+```
+
+**Causa**: Chave API inválida ou malformada
+**Solução**: Verifique se a chave está correta e inclui o prefixo adequado
+
+### 403 - Forbidden
+```json
+{
+  "error": {
+    "type": "forbidden",
+    "message": "API key does not have permission for this operation"
+  }
+}
+```
+
+**Causa**: Chave não tem permissão para a operação
+**Solução**: Verifique se está usando a chave correta para o ambiente
+
+### 429 - Rate Limit Exceeded
+```json
+{
+  "error": {
+    "type": "rate_limit_exceeded",
+    "message": "Too many requests",
+    "retry_after": 60
+  }
+}
+```
+
+**Causa**: Muitas requisições em pouco tempo
+**Solução**: Implemente retry com backoff exponencial
+
+---
+
+<Tip>
+**Próximos Passos**: Agora que você entende a autenticação, configure os [ambientes de sandbox e produção](/autenticacao/ambientes).
+</Tip>

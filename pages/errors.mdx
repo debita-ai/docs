@@ -1,0 +1,431 @@
+---
+title: "Error Handling"
+description: "Understanding and handling errors in the Debita AI API"
+---
+
+## Overview
+
+The Debita AI API uses standard HTTP status codes and returns detailed error information in JSON format to help you handle different error scenarios gracefully.
+
+## HTTP Status Codes
+
+<CardGroup cols={2}>
+  <Card title="2xx Success" icon="circle-check">
+    - **200** - OK
+    - **201** - Created
+    - **204** - No Content
+  </Card>
+  <Card title="4xx Client Errors" icon="triangle-exclamation">
+    - **400** - Bad Request
+    - **401** - Unauthorized
+    - **403** - Forbidden
+    - **404** - Not Found
+    - **429** - Too Many Requests
+  </Card>
+  <Card title="5xx Server Errors" icon="circle-xmark">
+    - **500** - Internal Server Error
+    - **502** - Bad Gateway
+    - **503** - Service Unavailable
+    - **504** - Gateway Timeout
+  </Card>
+</CardGroup>
+
+## Error Response Format
+
+All errors return a consistent JSON format:
+
+```json
+{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "missing_required_parameter",
+    "message": "Missing required parameter: customer_id",
+    "param": "customer_id",
+    "request_id": "req_1234567890abcdef"
+  }
+}
+```
+
+### Error Object Fields
+
+<ResponseField name="type" type="string" required>
+  The type of error that occurred. See [Error Types](#error-types) below.
+</ResponseField>
+
+<ResponseField name="code" type="string" required>
+  A specific error code for programmatic handling.
+</ResponseField>
+
+<ResponseField name="message" type="string" required>
+  A human-readable message describing the error.
+</ResponseField>
+
+<ResponseField name="param" type="string">
+  The parameter that caused the error (if applicable).
+</ResponseField>
+
+<ResponseField name="request_id" type="string" required>
+  Unique identifier for the request. Include this when contacting support.
+</ResponseField>
+
+## Error Types
+
+### `api_error`
+Errors on Debita AI's side. These are rare and usually temporary.
+
+```json
+{
+  "error": {
+    "type": "api_error",
+    "code": "internal_server_error",
+    "message": "An internal error occurred. Please try again.",
+    "request_id": "req_1234567890abcdef"
+  }
+}
+```
+
+### `authentication_error`
+Issues with API key authentication.
+
+```json
+{
+  "error": {
+    "type": "authentication_error",
+    "code": "invalid_api_key",
+    "message": "Invalid API key provided",
+    "request_id": "req_1234567890abcdef"
+  }
+}
+```
+
+### `invalid_request_error`
+Client-side errors like missing parameters or invalid data.
+
+```json
+{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "missing_required_parameter",
+    "message": "Missing required parameter: amount",
+    "param": "amount",
+    "request_id": "req_1234567890abcdef"
+  }
+}
+```
+
+### `rate_limit_error`
+Too many requests sent in a short period.
+
+```json
+{
+  "error": {
+    "type": "rate_limit_error",
+    "code": "rate_limit_exceeded",
+    "message": "Too many requests. Try again in 60 seconds.",
+    "retry_after": 60,
+    "request_id": "req_1234567890abcdef"
+  }
+}
+```
+
+### `resource_error`
+Issues with the requested resource.
+
+```json
+{
+  "error": {
+    "type": "resource_error",
+    "code": "resource_not_found",
+    "message": "No such customer: cus_invalid123",
+    "param": "customer_id",
+    "request_id": "req_1234567890abcdef"
+  }
+}
+```
+
+### `validation_error`
+Data validation errors specific to Brazilian business rules.
+
+```json
+{
+  "error": {
+    "type": "validation_error",
+    "code": "invalid_document",
+    "message": "Invalid CPF format",
+    "param": "document",
+    "details": {
+      "field": "document",
+      "value": "12345678900",
+      "reason": "Invalid check digits"
+    },
+    "request_id": "req_1234567890abcdef"
+  }
+}
+```
+
+## Common Error Codes
+
+### Authentication Errors
+<ResponseField name="invalid_api_key" type="401">
+  The provided API key is invalid or has been revoked.
+</ResponseField>
+
+<ResponseField name="missing_api_key" type="401">
+  No API key was provided in the request.
+</ResponseField>
+
+<ResponseField name="key_insufficient_permissions" type="403">
+  The API key doesn't have sufficient permissions for this operation.
+</ResponseField>
+
+### Validation Errors
+<ResponseField name="missing_required_parameter" type="400">
+  A required parameter is missing from the request.
+</ResponseField>
+
+<ResponseField name="invalid_parameter_value" type="400">
+  A parameter has an invalid value.
+</ResponseField>
+
+<ResponseField name="invalid_document" type="400">
+  Invalid CPF or CNPJ format or check digits.
+</ResponseField>
+
+<ResponseField name="invalid_email" type="400">
+  Invalid email address format.
+</ResponseField>
+
+<ResponseField name="invalid_phone" type="400">
+  Invalid Brazilian phone number format.
+</ResponseField>
+
+### Payment Errors
+<ResponseField name="insufficient_funds" type="400">
+  The customer's account has insufficient funds.
+</ResponseField>
+
+<ResponseField name="payment_method_unavailable" type="400">
+  The requested payment method is not available.
+</ResponseField>
+
+<ResponseField name="amount_too_small" type="400">
+  The payment amount is below the minimum allowed.
+</ResponseField>
+
+<ResponseField name="amount_too_large" type="400">
+  The payment amount exceeds the maximum allowed.
+</ResponseField>
+
+<ResponseField name="expired_payment" type="400">
+  The payment has expired and can no longer be processed.
+</ResponseField>
+
+## Error Handling Best Practices
+
+### 1. Always Check Status Codes
+
+<CodeGroup>
+```javascript Node.js
+try {
+  const charge = await debita.charges.create({
+    customer_id: 'cus_123',
+    amount: 1000,
+    currency: 'BRL'
+  });
+} catch (error) {
+  if (error.type === 'invalid_request_error') {
+    console.log('Client error:', error.message);
+  } else if (error.type === 'api_error') {
+    console.log('Server error:', error.message);
+    // Maybe retry the request
+  }
+}
+```
+
+```python Python
+try:
+    charge = debita.Charge.create(
+        customer_id='cus_123',
+        amount=1000,
+        currency='BRL'
+    )
+except debita.error.InvalidRequestError as e:
+    print(f'Client error: {e.user_message}')
+except debita.error.APIError as e:
+    print(f'Server error: {e.user_message}')
+    # Maybe retry the request
+```
+
+```php PHP
+try {
+    $charge = \Debita\Charge::create([
+        'customer_id' => 'cus_123',
+        'amount' => 1000,
+        'currency' => 'BRL'
+    ]);
+} catch (\Debita\Error\InvalidRequest $e) {
+    echo 'Client error: ' . $e->getMessage();
+} catch (\Debita\Error\Api $e) {
+    echo 'Server error: ' . $e->getMessage();
+    // Maybe retry the request
+}
+```
+</CodeGroup>
+
+### 2. Implement Retry Logic
+
+For temporary errors (5xx) and rate limits (429), implement exponential backoff:
+
+```javascript
+async function retryRequest(requestFn, maxRetries = 3) {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await requestFn();
+    } catch (error) {
+      const shouldRetry = error.type === 'api_error' ||
+                         error.type === 'rate_limit_error';
+
+      if (!shouldRetry || attempt === maxRetries - 1) {
+        throw error;
+      }
+
+      const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+```
+
+### 3. Log Request IDs
+
+Always log the `request_id` for debugging and support:
+
+```javascript
+try {
+  // Make API call
+} catch (error) {
+  console.error(`API Error [${error.request_id}]:`, error.message);
+  // Send to your error tracking service
+}
+```
+
+### 4. Validate Before Sending
+
+Validate data client-side to prevent common errors:
+
+<CodeGroup>
+```javascript CPF Validation
+function isValidCPF(cpf) {
+  cpf = cpf.replace(/\D/g, '');
+
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) {
+    return false;
+  }
+
+  // Validate check digits
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(cpf[i]) * (10 - i);
+  }
+  let remainder = 11 - (sum % 11);
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(cpf[9])) return false;
+
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(cpf[i]) * (11 - i);
+  }
+  remainder = 11 - (sum % 11);
+  if (remainder === 10 || remainder === 11) remainder = 0;
+  if (remainder !== parseInt(cpf[10])) return false;
+
+  return true;
+}
+```
+
+```javascript Email Validation
+function isValidEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+```
+
+```javascript Phone Validation
+function isValidBrazilianPhone(phone) {
+  // Remove all non-digits
+  const cleaned = phone.replace(/\D/g, '');
+
+  // Check if it matches Brazilian phone patterns
+  // Mobile: +55 11 99999-9999 (13 digits total)
+  // Landline: +55 11 9999-9999 (12 digits total)
+  return /^55[1-9]{2}9?[0-9]{8}$/.test(cleaned);
+}
+```
+</CodeGroup>
+
+## Error Monitoring
+
+### Production Error Handling
+
+Set up proper error monitoring in production:
+
+```javascript
+const winston = require('winston');
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' })
+  ]
+});
+
+// Log all API errors
+debita.on('error', (error) => {
+  logger.error({
+    type: 'debita_api_error',
+    error_type: error.type,
+    error_code: error.code,
+    error_message: error.message,
+    request_id: error.request_id,
+    timestamp: new Date().toISOString()
+  });
+});
+```
+
+### Health Checks
+
+Implement health checks to monitor API connectivity:
+
+```javascript
+async function healthCheck() {
+  try {
+    await debita.customers.list({ limit: 1 });
+    return { status: 'healthy' };
+  } catch (error) {
+    return {
+      status: 'unhealthy',
+      error: error.type,
+      request_id: error.request_id
+    };
+  }
+}
+```
+
+## Support
+
+When contacting support, always include:
+
+- **Request ID** from the error response
+- **API key prefix** (e.g., `pk_test_abc...`)
+- **Timestamp** when the error occurred
+- **Full error response** (redact sensitive data)
+
+<Card
+  title="Contact Support"
+  icon="life-ring"
+  href="/resources/support"
+>
+  Get help resolving API errors and integration issues
+</Card>

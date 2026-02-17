@@ -1,0 +1,296 @@
+---
+title: "POST /v1/charges/pix/dynamic"
+api: "POST https://api.debita.ai/v1/charges/pix/dynamic"
+description: "Cria uma cobrança PIX com QR Code único, valor predefinido e expiração automática. Ideal para e-commerce e pagamentos únicos."
+---
+
+## Visão Geral
+
+Cria uma cobrança PIX dinâmica com QR Code único, valor predefinido e expiração automática. Este endpoint é ideal para:
+
+- **E-commerce**: Checkout com valor fixo
+- **Serviços**: Pagamentos de consultas e cursos
+- **Eventos**: Venda de ingressos
+- **Assinaturas**: Renovações mensais/anuais
+
+<Warning>
+**Ambiente de Testes**: Use chaves `pk_sandbox_` para desenvolvimento. PIX de teste é confirmado automaticamente após 10 segundos.
+</Warning>
+
+## Parâmetros da Requisição
+
+### Headers Obrigatórios
+
+<ParamField header="Authorization" type="string" required>
+  Chave API no formato Bearer token
+  ```
+  Bearer pk_sandbox_sua_chave
+  ```
+</ParamField>
+
+<ParamField header="Content-Type" type="string">
+  Tipo de conteúdo da requisição
+  ```
+  application/json
+  ```
+</ParamField>
+
+<ParamField header="Idempotency-Key" type="string">
+  UUID único para evitar duplicação de requisições
+  ```
+  550e8400-e29b-41d4-a716-446655440000
+  ```
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="amount" type="integer" required>
+  Valor da cobrança em centavos. R$ 100,00 = 10000
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  Descrição da cobrança (máximo 255 caracteres)
+</ParamField>
+
+<ParamField body="customer" type="object">
+  Dados do cliente que realizará o pagamento
+
+  <Expandable title="Propriedades do customer">
+    <ParamField body="customer.name" type="string" required>
+      Nome completo do cliente
+    </ParamField>
+    <ParamField body="customer.document" type="string" required>
+      CPF ou CNPJ do cliente
+    </ParamField>
+    <ParamField body="customer.email" type="string">
+      E-mail do cliente
+    </ParamField>
+    <ParamField body="customer.phone" type="string">
+      Telefone com código do país (+5511999999999)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="expires_at" type="string">
+  Data de expiração no formato ISO 8601. Se não informado, expira em 30 minutos.
+</ParamField>
+
+<ParamField body="external_id" type="string">
+  ID externo para controle (opcional)
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Dados adicionais em formato chave-valor
+</ParamField>
+
+## Exemplo de Requisição
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://api.debita.ai/v1/charges/pix/dynamic \
+  -H "Authorization: Bearer pk_sandbox_sua_chave" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+    "amount": 25000,
+    "description": "Compra de curso online - Módulo Avançado",
+    "customer": {
+      "name": "Maria Silva Santos",
+      "document": "123.456.789-09",
+      "email": "maria.silva@email.com",
+      "phone": "+5511987654321"
+    },
+    "expires_at": "2024-01-01T15:30:00-03:00",
+    "external_id": "pedido_12345",
+    "metadata": {
+      "produto": "curso_avancado",
+      "categoria": "educacao"
+    }
+  }'
+```
+
+```javascript Node.js
+const response = await fetch('https://api.debita.ai/v1/charges/pix/dynamic', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer pk_sandbox_sua_chave',
+    'Content-Type': 'application/json',
+    'Idempotency-Key': crypto.randomUUID()
+  },
+  body: JSON.stringify({
+    amount: 25000, // R$ 250,00
+    description: 'Compra de curso online - Módulo Avançado',
+    customer: {
+      name: 'Maria Silva Santos',
+      document: '123.456.789-09',
+      email: 'maria.silva@email.com',
+      phone: '+5511987654321'
+    },
+    expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+    external_id: 'pedido_12345',
+    metadata: {
+      produto: 'curso_avancado',
+      categoria: 'educacao'
+    }
+  })
+});
+
+const charge = await response.json();
+console.log('PIX criado:', charge.id);
+console.log('QR Code:', charge.pix.qr_code);
+```
+
+```python Python
+import requests
+import uuid
+from datetime import datetime, timedelta
+
+url = 'https://api.debita.ai/v1/charges/pix/dynamic'
+
+payload = {
+    'amount': 25000,  # R$ 250,00
+    'description': 'Compra de curso online - Módulo Avançado',
+    'customer': {
+        'name': 'Maria Silva Santos',
+        'document': '123.456.789-09',
+        'email': 'maria.silva@email.com',
+        'phone': '+5511987654321'
+    },
+    'expires_at': (datetime.now() + timedelta(minutes=30)).isoformat(),
+    'external_id': 'pedido_12345',
+    'metadata': {
+        'produto': 'curso_avancado',
+        'categoria': 'educacao'
+    }
+}
+
+headers = {
+    'Authorization': 'Bearer pk_sandbox_sua_chave',
+    'Content-Type': 'application/json',
+    'Idempotency-Key': str(uuid.uuid4())
+}
+
+response = requests.post(url, json=payload, headers=headers)
+charge = response.json()
+
+print(f'PIX criado: {charge["id"]}')
+print(f'QR Code: {charge["pix"]["qr_code"]}')
+```
+
+</RequestExample>
+
+## Resposta
+
+<ResponseExample>
+
+```json Sucesso (201)
+{
+  "id": "chg_1a2b3c4d5e6f",
+  "status": "pending",
+  "amount": 25000,
+  "currency": "BRL",
+  "description": "Compra de curso online - Módulo Avançado",
+  "method": "pix_dynamic",
+  "customer": {
+    "id": "cust_9z8y7x6w",
+    "name": "Maria Silva Santos",
+    "document": "123.456.789-09",
+    "email": "maria.silva@email.com",
+    "phone": "+5511987654321"
+  },
+  "pix": {
+    "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "payload": "00020126580014br.gov.bcb.pix2536merchant.debita.ai/pix/...",
+    "txid": "E12345678202401011230123456789",
+    "expires_at": "2024-01-01T15:30:00-03:00",
+    "end_to_end_id": null
+  },
+  "external_id": "pedido_12345",
+  "metadata": {
+    "produto": "curso_avancado",
+    "categoria": "educacao"
+  },
+  "created_at": "2024-01-01T14:30:00-03:00",
+  "updated_at": "2024-01-01T14:30:00-03:00"
+}
+```
+
+```json Erro de Validação (400)
+{
+  "error": {
+    "type": "validation_error",
+    "code": "INVALID_AMOUNT",
+    "message": "Amount must be greater than 0",
+    "field": "amount",
+    "details": {
+      "received": -100,
+      "minimum": 1
+    }
+  }
+}
+```
+
+</ResponseExample>
+
+## Campos da Resposta
+
+<ResponseField name="id" type="string">
+  ID único da cobrança no formato `chg_` seguido de caracteres alfanuméricos
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Status atual da cobrança:
+  - `pending`: Aguardando pagamento
+  - `confirmed`: Pagamento confirmado
+  - `expired`: QR Code expirado
+  - `failed`: Falha no pagamento
+</ResponseField>
+
+<ResponseField name="pix" type="object">
+  Dados específicos do PIX
+  <Expandable title="Propriedades do objeto pix">
+    <ResponseField name="qr_code" type="string">
+      Imagem do QR Code em formato base64 para exibição
+    </ResponseField>
+    <ResponseField name="payload" type="string">
+      String PIX para copy/paste no app bancário
+    </ResponseField>
+    <ResponseField name="txid" type="string">
+      Transaction ID único do PIX no formato BACEN
+    </ResponseField>
+    <ResponseField name="expires_at" type="string">
+      Data/hora de expiração no formato ISO 8601
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Códigos de Erro
+
+<ResponseField name="400" type="error">
+  **Bad Request** - Dados de entrada inválidos
+</ResponseField>
+
+<ResponseField name="401" type="error">
+  **Unauthorized** - Chave API inválida ou ausente
+</ResponseField>
+
+<ResponseField name="422" type="error">
+  **Unprocessable Entity** - Dados válidos mas não processáveis
+</ResponseField>
+
+<ResponseField name="429" type="error">
+  **Rate Limited** - Muitas requisições
+</ResponseField>
+
+## Webhooks
+
+Configure webhooks para receber notificações em tempo real sobre mudanças no status do PIX:
+
+- `pix.payment.confirmed` - PIX foi pago
+- `pix.payment.expired` - PIX expirou
+- `pix.payment.failed` - Falha no pagamento
+
+<Card title="Configurar Webhooks" icon="webhook" href="/webhooks/configuracao">
+  Aprenda a configurar webhooks para receber notificações automáticas
+</Card>

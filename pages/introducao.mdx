@@ -1,0 +1,116 @@
+---
+title: "Bem-vindo à Debita AI"
+description: "Documentação oficial da API Debita AI para desenvolvedores. Integre PIX e Boleto em sua aplicação com facilidade e segurança."
+---
+
+# Bem-vindo à Debita AI
+
+A **Debita AI** é uma plataforma fintech brasileira que oferece APIs robustas e seguras para processamento de pagamentos digitais. Nossa solução foi desenvolvida especificamente para o mercado brasileiro, oferecendo suporte completo aos métodos de pagamento mais utilizados no país.
+
+## 🚀 Por que escolher a Debita AI?
+
+<CardGroup cols={2}>
+  <Card title="PIX Instantâneo" icon="bolt" href="/metodos-pagamento/pix/dinamico">
+    Pagamentos PIX em tempo real com QR Code dinâmico e estático. Liquidação D+0.
+  </Card>
+  <Card title="Boleto Bancário" icon="receipt" href="/metodos-pagamento/boleto/tradicional">
+    Geração de boletos tradicionais e híbridos com PIX integrado. Liquidação D+1.
+  </Card>
+  <Card title="Webhooks Seguros" icon="shield-check" href="/webhooks/visao-geral">
+    Sistema robusto de notificações em tempo real com validação HMAC SHA-256.
+  </Card>
+  <Card title="Compliance BACEN" icon="check-circle" href="/compliance/bacen">
+    Totalmente aderente às regulamentações do Banco Central do Brasil.
+  </Card>
+</CardGroup>
+
+## 💰 Métodos de Pagamento Suportados
+
+Nossa plataforma foi otimizada para os métodos de pagamento mais relevantes do mercado brasileiro:
+
+### PIX
+- **PIX Dinâmico**: QR Codes únicos para cada transação
+- **PIX Estático**: QR Codes reutilizáveis para múltiplas transações
+- **PIX com Fiador**: Garantia adicional para transações comerciais
+- **PIX Recorrente**: Cobranças automáticas via PIX
+
+### Boleto Bancário
+- **Boleto Tradicional**: Código de barras para pagamento em bancos
+- **Boleto Híbrido**: Boleto + PIX em um único documento
+- **Carnê Digital**: Parcelamento com múltiplos boletos
+- **Configuração Avançada**: Juros, multa e desconto personalizáveis
+
+### Payment Links
+- **Links de Pagamento**: URLs personalizadas para checkout
+- **Checkout Hospedado**: Interface otimizada e responsiva
+- **Customização Visual**: Aplique sua marca ao checkout
+
+## 🔧 Características Técnicas
+
+<CardGroup cols={3}>
+  <Card title="API Gateway Inteligente" icon="network-wired">
+    Detecção automática de ambiente baseada na chave API (pk_sandbox_/pk_test_/pk_live_).
+  </Card>
+  <Card title="Rate Limiting Escalável" icon="gauge">
+    1.000 requests em produção, 10.000 em test, 50.000 em sandbox.
+  </Card>
+  <Card title="Retry Automático" icon="rotate">
+    Sistema de retry com backoff exponencial para webhooks.
+  </Card>
+</CardGroup>
+
+## 🌟 Casos de Uso Comuns
+
+- **E-commerce**: Integre PIX e Boleto em sua loja virtual
+- **SaaS**: Cobranças recorrentes e links de pagamento
+- **Marketplace**: Split de pagamentos entre vendedores
+- **Serviços Financeiros**: APIs para fintechs e bancos digitais
+- **Governo**: Arrecadação de taxas e impostos
+
+## 📚 Comece Agora
+
+<CardGroup cols={2}>
+  <Card title="Guia Rápido" icon="rocket" href="/inicio-rapido">
+    Crie sua primeira cobrança PIX em 5 minutos
+  </Card>
+  <Card title="Autenticação" icon="key" href="/autenticacao/visao-geral">
+    Configure suas chaves API e ambientes
+  </Card>
+  <Card title="Webhooks" icon="webhook" href="/webhooks/configuracao">
+    Receba notificações em tempo real
+  </Card>
+  <Card title="Dados de Teste" icon="flask" href="/testes/dados-teste">
+    CPF e CNPJ válidos para sandbox
+  </Card>
+</CardGroup>
+
+## 🔐 Segurança e Compliance
+
+A Debita AI foi desenvolvida seguindo os mais altos padrões de segurança:
+
+- **LGPD**: Totalmente aderente à Lei Geral de Proteção de Dados
+- **PCI DSS**: Certificação para proteção de dados sensíveis
+- **HTTPS**: Todas as comunicações criptografadas
+- **HMAC SHA-256**: Validação de integridade para webhooks
+- **Audit Trail**: Rastreamento completo de todas as operações
+
+## 🎯 Próximos Passos
+
+1. **[Criar uma conta](https://dashboard.debita.ai)** no painel Debita AI
+2. **[Obter suas chaves](autenticacao/visao-geral)** de sandbox e produção
+3. **[Seguir o guia rápido](inicio-rapido)** para sua primeira integração
+4. **[Configurar webhooks](webhooks/configuracao)** para notificações
+5. **[Testar em sandbox](testes/sandbox)** antes de ir para produção
+
+---
+
+<Tip>
+**Dica**: Use sempre o ambiente de sandbox (chaves `pk_sandbox_`) durante o desenvolvimento. A API detecta automaticamente o ambiente e ajusta o comportamento accordingly.
+</Tip>
+
+## 🆘 Precisa de Ajuda?
+
+- **Email**: [suporte@debita.ai](mailto:suporte@debita.ai)
+- **Discord**: [Comunidade Debita AI](https://discord.gg/debita)
+- **Status**: [status.debita.ai](https://status.debita.ai)
+- **Dashboard**: [dashboard.debita.ai](https://dashboard.debita.ai)

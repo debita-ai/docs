@@ -1,0 +1,132 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Debita AI",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#00D7FF",
+    "light": "#33E1FF",
+    "dark": "#0099CC",
+    "anchors": {
+      "from": "#00D7FF",
+      "to": "#0099CC"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "Suporte",
+      "url": "mailto:suporte@debita.ai"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Painel de Controle",
+    "url": "https://dashboard.debita.ai"
+  },
+  "tabs": [
+    {
+      "name": "Guias",
+      "url": "guias"
+    },
+    {
+      "name": "Referência da API",
+      "url": "api-reference"
+    }
+  ],
+  "anchors": [
+    {
+      "name": "Dashboard",
+      "icon": "chart-line",
+      "url": "https://dashboard.debita.ai"
+    },
+    {
+      "name": "Comunidade",
+      "icon": "slack",
+      "url": "https://discord.gg/debita"
+    },
+    {
+      "name": "Status",
+      "icon": "check",
+      "url": "https://status.debita.ai"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Primeiros Passos",
+      "pages": ["introducao", "inicio-rapido"]
+    },
+    {
+      "group": "Autenticação",
+      "pages": ["autenticacao/visao-geral", "autenticacao/ambientes"]
+    },
+    {
+      "group": "Métodos de Pagamento",
+      "pages": [
+        "metodos-pagamento/visao-geral",
+        {
+          "group": "PIX",
+          "pages": [
+            "metodos-pagamento/pix/dinamico",
+            "metodos-pagamento/pix/estatico",
+            "metodos-pagamento/pix/com-fiador",
+            "metodos-pagamento/pix/exemplos"
+          ]
+        },
+        {
+          "group": "Boleto",
+          "pages": [
+            "metodos-pagamento/boleto/tradicional",
+            "metodos-pagamento/boleto/hibrido-pix",
+            "metodos-pagamento/boleto/carne",
+            "metodos-pagamento/boleto/exemplos"
+          ]
+        },
+        {
+          "group": "Payment Links",
+          "pages": [
+            "metodos-pagamento/payment-links/visao-geral",
+            "metodos-pagamento/payment-links/personalizacao"
+          ]
+        }
+      ]
+    },
+    {
+      "group": "Webhooks",
+      "pages": [
+        "webhooks/visao-geral",
+        "webhooks/configuracao",
+        "webhooks/eventos",
+        "webhooks/seguranca",
+        "webhooks/exemplos"
+      ]
+    },
+    {
+      "group": "Clientes",
+      "pages": ["clientes/gerenciamento", "clientes/validacao"]
+    },
+    {
+      "group": "Tratamento de Erros",
+      "pages": ["erros/tratamento", "erros/codigos"]
+    },
+    {
+      "group": "Testes",
+      "pages": [
+        "testes/sandbox",
+        "testes/dados-teste",
+        "testes/cenarios"
+      ]
+    },
+    {
+      "group": "Compliance",
+      "pages": ["compliance/bacen", "compliance/lgpd"]
+    }
+  ],
+  "footerSocials": {
+    "x": "https://x.com/debitaai",
+    "github": "https://github.com/debita-ai",
+    "linkedin": "https://www.linkedin.com/company/debita-ai"
+  },
+  "backgroundImage": "/background.png"
+}

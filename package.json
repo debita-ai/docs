@@ -1,0 +1,21 @@
+{
+  "name": "@debita/documentation",
+  "version": "1.0.0",
+  "description": "Debita AI API Documentation",
+  "private": true,
+  "scripts": {
+    "dev": "mintlify dev",
+    "start": "mintlify dev",
+    "build": "mintlify build",
+    "preview": "mintlify preview"
+  },
+  "keywords": [
+    "documentation",
+    "api",
+    "debita",
+    "fintech",
+    "payment",
+    "pix",
+    "boleto"
+  ]
+}

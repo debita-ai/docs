@@ -1,0 +1,461 @@
+---
+title: "POST /v1/charges/boleto"
+api: "POST https://api.debita.ai/v1/charges/boleto"
+description: "Cria um boleto bancário tradicional ou híbrido (boleto + PIX) com vencimento flexível e possibilidade de parcelamento."
+---
+
+## Visão Geral
+
+Cria um boleto bancário tradicional ou híbrido que permite pagamento tanto via código de barras quanto via PIX. Este endpoint é ideal para:
+
+- **B2B**: Pagamentos empresariais com prazo estendido
+- **Financiamentos**: Parcelamentos e carnês
+- **Serviços**: Mensalidades e assinaturas
+- **E-commerce**: Checkout com prazo para pagamento
+
+<Info>
+**Boleto Híbrido**: Por padrão, todos os boletos incluem opção de pagamento via PIX para maior conveniência do cliente.
+</Info>
+
+## Parâmetros da Requisição
+
+### Headers Obrigatórios
+
+<ParamField header="Authorization" type="string" required>
+  Chave API no formato Bearer token
+  ```
+  Bearer pk_sandbox_sua_chave
+  ```
+</ParamField>
+
+<ParamField header="Content-Type" type="string">
+  Tipo de conteúdo da requisição
+  ```
+  application/json
+  ```
+</ParamField>
+
+<ParamField header="Idempotency-Key" type="string">
+  UUID único para evitar duplicação de requisições
+  ```
+  550e8400-e29b-41d4-a716-446655440000
+  ```
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="amount" type="integer" required>
+  Valor do boleto em centavos. R$ 100,00 = 10000
+</ParamField>
+
+<ParamField body="description" type="string" required>
+  Descrição que aparecerá no boleto (máximo 255 caracteres)
+</ParamField>
+
+<ParamField body="due_date" type="string" required>
+  Data de vencimento no formato ISO 8601 (YYYY-MM-DD)
+</ParamField>
+
+<ParamField body="customer" type="object" required>
+  Dados obrigatórios do pagador do boleto
+
+  <Expandable title="Propriedades do customer">
+    <ParamField body="customer.name" type="string" required>
+      Nome completo do pagador
+    </ParamField>
+    <ParamField body="customer.document" type="string" required>
+      CPF ou CNPJ do pagador
+    </ParamField>
+    <ParamField body="customer.email" type="string">
+      E-mail para envio do boleto
+    </ParamField>
+    <ParamField body="customer.phone" type="string">
+      Telefone com código do país (+5511999999999)
+    </ParamField>
+    <ParamField body="customer.address" type="object">
+      Endereço do pagador
+
+      <Expandable title="Propriedades do address">
+        <ParamField body="customer.address.street" type="string" required>
+          Logradouro
+        </ParamField>
+        <ParamField body="customer.address.number" type="string" required>
+          Número
+        </ParamField>
+        <ParamField body="customer.address.complement" type="string">
+          Complemento
+        </ParamField>
+        <ParamField body="customer.address.neighborhood" type="string" required>
+          Bairro
+        </ParamField>
+        <ParamField body="customer.address.city" type="string" required>
+          Cidade
+        </ParamField>
+        <ParamField body="customer.address.state" type="string" required>
+          Estado (2 letras)
+        </ParamField>
+        <ParamField body="customer.address.zipcode" type="string" required>
+          CEP (apenas números)
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="late_fine" type="object">
+  Configuração de multa por atraso
+
+  <Expandable title="Propriedades do late_fine">
+    <ParamField body="late_fine.type" type="string" required>
+      Tipo da multa: `Fixed` (valor fixo) ou `Percentage` (percentual)
+    </ParamField>
+    <ParamField body="late_fine.amount" type="number" required>
+      - Para `Fixed`: Valor em centavos (ex: 2500 = R$ 25,00)
+      - Para `Percentage`: Valor percentual (ex: 2.0 = 2%)
+    </ParamField>
+    <ParamField body="late_fine.date" type="string" required>
+      Data a partir da qual a multa será aplicada (formato YYYY-MM-DD)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="late_payment" type="object">
+  Configuração de juros por atraso
+
+  <Expandable title="Propriedades do late_payment">
+    <ParamField body="late_payment.type" type="string" required>
+      Tipo de juros: `Fixed` (valor fixo diário) ou `Percentage` (percentual diário)
+    </ParamField>
+    <ParamField body="late_payment.amount" type="number" required>
+      - Para `Fixed`: Valor diário em centavos (ex: 100 = R$ 1,00/dia)
+      - Para `Percentage`: Taxa diária (ex: 0.033 = 0,033% ao dia)
+    </ParamField>
+    <ParamField body="late_payment.date" type="string" required>
+      Data a partir da qual os juros serão aplicados (formato YYYY-MM-DD)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="discount" type="object">
+  Configuração de desconto para pagamento antecipado
+
+  <Expandable title="Propriedades do discount">
+    <ParamField body="discount.type" type="string" required>
+      Tipo de desconto: `Fixed` (valor fixo) ou `Percentage` (percentual)
+    </ParamField>
+    <ParamField body="discount.items" type="array" required>
+      Lista de descontos escalonados
+
+      <Expandable title="Propriedades dos items">
+        <ParamField body="discount.items[].date" type="string" required>
+          Data limite para o desconto (formato YYYY-MM-DD)
+        </ParamField>
+        <ParamField body="discount.items[].amount" type="number" required>
+          - Para `Fixed`: Valor em centavos (ex: 1000 = R$ 10,00)
+          - Para `Percentage`: Valor percentual (ex: 5.0 = 5%)
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="instructions" type="string">
+  Instruções adicionais que aparecerão no boleto
+</ParamField>
+
+<ParamField body="external_id" type="string">
+  ID externo para controle (opcional)
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Dados adicionais em formato chave-valor
+</ParamField>
+
+## Exemplo de Requisição
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://api.debita.ai/v1/charges/boleto \
+  -H "Authorization: Bearer pk_sandbox_sua_chave" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+    "amount": 50000,
+    "description": "Mensalidade do curso - Janeiro 2024",
+    "due_date": "2024-01-31",
+    "customer": {
+      "name": "João Silva Santos",
+      "document": "123.456.789-09",
+      "email": "joao@email.com",
+      "phone": "+5511987654321",
+      "address": {
+        "street": "Rua das Flores",
+        "number": "123",
+        "complement": "Apto 45",
+        "neighborhood": "Centro",
+        "city": "São Paulo",
+        "state": "SP",
+        "zipcode": "01234567"
+      }
+    },
+    "late_fine": {
+      "type": "Percentage",
+      "amount": 2.0,
+      "date": "2024-02-05"
+    },
+    "late_payment": {
+      "type": "Fixed",
+      "amount": 100,
+      "date": "2024-02-10"
+    },
+    "instructions": "Não aceitar após 30 dias do vencimento",
+    "external_id": "mensalidade_jan_2024"
+  }'
+```
+
+```javascript Node.js
+const response = await fetch('https://api.debita.ai/v1/charges/boleto', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer pk_sandbox_sua_chave',
+    'Content-Type': 'application/json',
+    'Idempotency-Key': crypto.randomUUID()
+  },
+  body: JSON.stringify({
+    amount: 50000, // R$ 500,00
+    description: 'Mensalidade do curso - Janeiro 2024',
+    due_date: '2024-01-31',
+    customer: {
+      name: 'João Silva Santos',
+      document: '123.456.789-09',
+      email: 'joao@email.com',
+      phone: '+5511987654321',
+      address: {
+        street: 'Rua das Flores',
+        number: '123',
+        complement: 'Apto 45',
+        neighborhood: 'Centro',
+        city: 'São Paulo',
+        state: 'SP',
+        zipcode: '01234567'
+      }
+    },
+    late_fine: {
+      type: 'Percentage',
+      amount: 2.0, // 2% de multa
+      date: '2024-02-05'
+    },
+    late_payment: {
+      type: 'Fixed',
+      amount: 100, // R$ 1,00 por dia
+      date: '2024-02-10'
+    },
+    instructions: 'Não aceitar após 30 dias do vencimento',
+    external_id: 'mensalidade_jan_2024'
+  })
+});
+
+const boleto = await response.json();
+console.log('Boleto criado:', boleto.id);
+console.log('Código de barras:', boleto.barcode);
+```
+
+```python Python
+import requests
+import uuid
+from datetime import datetime, timedelta
+
+url = 'https://api.debita.ai/v1/charges/boleto'
+
+payload = {
+    'amount': 50000,  # R$ 500,00
+    'description': 'Mensalidade do curso - Janeiro 2024',
+    'due_date': '2024-01-31',
+    'customer': {
+        'name': 'João Silva Santos',
+        'document': '123.456.789-09',
+        'email': 'joao@email.com',
+        'phone': '+5511987654321',
+        'address': {
+            'street': 'Rua das Flores',
+            'number': '123',
+            'complement': 'Apto 45',
+            'neighborhood': 'Centro',
+            'city': 'São Paulo',
+            'state': 'SP',
+            'zipcode': '01234567'
+        }
+    },
+    'late_fine': {
+        'type': 'Percentage',
+        'amount': 2.0,  # 2% de multa
+        'date': '2024-02-05'
+    },
+    'late_payment': {
+        'type': 'Fixed',
+        'amount': 100,  # R$ 1,00 por dia
+        'date': '2024-02-10'
+    },
+    'instructions': 'Não aceitar após 30 dias do vencimento',
+    'external_id': 'mensalidade_jan_2024'
+}
+
+headers = {
+    'Authorization': 'Bearer pk_sandbox_sua_chave',
+    'Content-Type': 'application/json',
+    'Idempotency-Key': str(uuid.uuid4())
+}
+
+response = requests.post(url, json=payload, headers=headers)
+boleto = response.json()
+
+print(f'Boleto criado: {boleto["id"]}')
+print(f'Código de barras: {boleto["barcode"]}')
+```
+
+</RequestExample>
+
+## Resposta
+
+<ResponseExample>
+
+```json Sucesso (201)
+{
+  "id": "chg_boleto_abc123",
+  "status": "pending",
+  "amount": 50000,
+  "currency": "BRL",
+  "description": "Mensalidade do curso - Janeiro 2024",
+  "method": "boleto",
+  "due_date": "2024-01-31",
+  "customer": {
+    "id": "cust_def456",
+    "name": "João Silva Santos",
+    "document": "123.456.789-09",
+    "email": "joao@email.com",
+    "phone": "+5511987654321"
+  },
+  "boleto": {
+    "barcode": "34191234567890123456789012345678901234567890",
+    "digitable_line": "34191.23456 78901.234567 89012.345678 9 01234567890",
+    "pdf_url": "https://api.debita.ai/boletos/chg_boleto_abc123/pdf",
+    "bank_number": "341",
+    "bank_name": "Itaú Unibanco",
+    "agency": "1234",
+    "account": "567890"
+  },
+  "pix": {
+    "qr_code": "data:image/png;base64,iVBORw0KGgo...",
+    "payload": "00020126580014br.gov.bcb.pix...",
+    "txid": "BOLETO123456789012345"
+  },
+  "late_fine": {
+    "type": "Percentage",
+    "amount": 2.0,
+    "date": "2024-02-05"
+  },
+  "late_payment": {
+    "type": "Fixed",
+    "amount": 100,
+    "date": "2024-02-10"
+  },
+  "instructions": "Não aceitar após 30 dias do vencimento",
+  "external_id": "mensalidade_jan_2024",
+  "created_at": "2024-01-01T10:00:00-03:00",
+  "updated_at": "2024-01-01T10:00:00-03:00"
+}
+```
+
+```json Erro de Validação (400)
+{
+  "error": {
+    "type": "validation_error",
+    "code": "INVALID_DUE_DATE",
+    "message": "Due date must be in the future",
+    "field": "due_date",
+    "details": {
+      "received": "2023-12-01",
+      "minimum": "2024-01-02"
+    }
+  }
+}
+```
+
+</ResponseExample>
+
+## Campos da Resposta
+
+<ResponseField name="id" type="string">
+  ID único do boleto no formato `chg_boleto_` seguido de caracteres alfanuméricos
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Status atual do boleto:
+  - `pending`: Aguardando pagamento
+  - `confirmed`: Pagamento confirmado
+  - `expired`: Boleto vencido
+  - `cancelled`: Cancelado
+</ResponseField>
+
+<ResponseField name="boleto" type="object">
+  Dados específicos do boleto bancário
+  <Expandable title="Propriedades do objeto boleto">
+    <ResponseField name="barcode" type="string">
+      Código de barras completo para pagamento
+    </ResponseField>
+    <ResponseField name="digitable_line" type="string">
+      Linha digitável formatada para digitação manual
+    </ResponseField>
+    <ResponseField name="pdf_url" type="string">
+      URL para download do PDF do boleto
+    </ResponseField>
+    <ResponseField name="bank_number" type="string">
+      Código do banco emissor
+    </ResponseField>
+    <ResponseField name="bank_name" type="string">
+      Nome do banco emissor
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="pix" type="object">
+  Dados PIX para pagamento híbrido (opcional)
+  <Expandable title="Propriedades do objeto pix">
+    <ResponseField name="qr_code" type="string">
+      QR Code PIX em formato base64
+    </ResponseField>
+    <ResponseField name="payload" type="string">
+      String PIX para copy/paste
+    </ResponseField>
+    <ResponseField name="txid" type="string">
+      Transaction ID do PIX
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Códigos de Erro
+
+<ResponseField name="400" type="error">
+  **Bad Request** - Dados de entrada inválidos
+</ResponseField>
+
+<ResponseField name="401" type="error">
+  **Unauthorized** - Chave API inválida ou ausente
+</ResponseField>
+
+<ResponseField name="422" type="error">
+  **Unprocessable Entity** - Dados válidos mas não processáveis
+</ResponseField>
+
+## Webhooks
+
+Configure webhooks para receber notificações sobre o boleto:
+
+- `boleto.payment.confirmed` - Boleto foi pago
+- `boleto.payment.expired` - Boleto venceu
+- `boleto.payment.cancelled` - Boleto foi cancelado
+
+<Card title="Configurar Webhooks" icon="webhook" href="/webhooks/configuracao">
+  Aprenda a configurar webhooks para receber notificações automáticas
+</Card>

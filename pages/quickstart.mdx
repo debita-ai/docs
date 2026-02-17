@@ -1,0 +1,297 @@
+---
+title: "Quick Start"
+description: "Get started with Debita AI in under 10 minutes"
+---
+
+## Overview
+
+This guide will walk you through your first payment integration with Debita AI. You'll learn how to create a customer, generate a charge, and process a PIX payment.
+
+<Steps>
+  <Step title="Get your API keys">
+    Sign up for a Debita AI account and get your API keys from the dashboard.
+
+    ```bash
+    # Test environment (sandbox)
+    pk_test_1234567890abcdef...
+
+    # Live environment (production)
+    pk_live_1234567890abcdef...
+    ```
+
+    <Tip>Start with test keys (`pk_test_`) for development. The API automatically adapts to your environment.</Tip>
+  </Step>
+
+  <Step title="Create a customer">
+    Every payment needs a customer. Let's create one with basic information:
+
+    <CodeGroup>
+      ```bash curl
+      curl -X POST https://api.debita.ai/v1/customers \
+        -H "Authorization: Bearer pk_test_your_key_here" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "name": "João Silva",
+          "email": "joao@example.com",
+          "document": "12345678901",
+          "phone": "+5511999999999"
+        }'
+      ```
+
+      ```javascript Node.js
+      const debita = require('debita-node')('pk_test_your_key_here');
+
+      const customer = await debita.customers.create({
+        name: 'João Silva',
+        email: 'joao@example.com',
+        document: '12345678901',
+        phone: '+5511999999999'
+      });
+      ```
+
+      ```python Python
+      import debita
+
+      debita.api_key = "pk_test_your_key_here"
+
+      customer = debita.Customer.create(
+          name="João Silva",
+          email="joao@example.com",
+          document="12345678901",
+          phone="+5511999999999"
+      )
+      ```
+
+      ```php PHP
+      <?php
+      require_once('vendor/autoload.php');
+
+      \Debita\Debita::setApiKey('pk_test_your_key_here');
+
+      $customer = \Debita\Customer::create([
+        'name' => 'João Silva',
+        'email' => 'joao@example.com',
+        'document' => '12345678901',
+        'phone' => '+5511999999999'
+      ]);
+      ?>
+      ```
+    </CodeGroup>
+
+    **Response:**
+    ```json
+    {
+      "id": "cus_1234567890abcdef",
+      "name": "João Silva",
+      "email": "joao@example.com",
+      "document": "12345678901",
+      "phone": "+5511999999999",
+      "created_at": "2024-01-15T10:30:00Z"
+    }
+    ```
+  </Step>
+
+  <Step title="Create a charge">
+    Now let's create a charge for R$ 99,90:
+
+    <CodeGroup>
+      ```bash curl
+      curl -X POST https://api.debita.ai/v1/charges \
+        -H "Authorization: Bearer pk_test_your_key_here" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "customer_id": "cus_1234567890abcdef",
+          "amount": 9990,
+          "currency": "BRL",
+          "description": "Premium subscription",
+          "payment_method": ["pix"]
+        }'
+      ```
+
+      ```javascript Node.js
+      const charge = await debita.charges.create({
+        customer_id: 'cus_1234567890abcdef',
+        amount: 9990, // Amount in cents (R$ 99,90)
+        currency: 'BRL',
+        description: 'Premium subscription',
+        payment_method: ['pix']
+      });
+      ```
+
+      ```python Python
+      charge = debita.Charge.create(
+          customer_id="cus_1234567890abcdef",
+          amount=9990,  # Amount in cents (R$ 99,90)
+          currency="BRL",
+          description="Premium subscription",
+          payment_method=["pix"]
+      )
+      ```
+
+      ```php PHP
+      $charge = \Debita\Charge::create([
+        'customer_id' => 'cus_1234567890abcdef',
+        'amount' => 9990, // Amount in cents (R$ 99,90)
+        'currency' => 'BRL',
+        'description' => 'Premium subscription',
+        'payment_method' => ['pix']
+      ]);
+      ```
+    </CodeGroup>
+
+    **Response:**
+    ```json
+    {
+      "id": "ch_1234567890abcdef",
+      "customer_id": "cus_1234567890abcdef",
+      "amount": 9990,
+      "currency": "BRL",
+      "description": "Premium subscription",
+      "status": "pending",
+      "payment_method": ["pix"],
+      "created_at": "2024-01-15T10:35:00Z"
+    }
+    ```
+
+    <Warning>Always use cents for amounts. R$ 99,90 = 9990 cents</Warning>
+  </Step>
+
+  <Step title="Generate PIX payment">
+    Create a PIX payment to get the QR code and copy & paste code:
+
+    <CodeGroup>
+      ```bash curl
+      curl -X POST https://api.debita.ai/v1/charges/ch_1234567890abcdef/pix \
+        -H "Authorization: Bearer pk_test_your_key_here" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "expires_in": 3600
+        }'
+      ```
+
+      ```javascript Node.js
+      const pixPayment = await debita.charges.createPixPayment('ch_1234567890abcdef', {
+        expires_in: 3600 // 1 hour
+      });
+      ```
+
+      ```python Python
+      pix_payment = charge.create_pix_payment(expires_in=3600)
+      ```
+
+      ```php PHP
+      $pixPayment = $charge->createPixPayment(['expires_in' => 3600]);
+      ```
+    </CodeGroup>
+
+    **Response:**
+    ```json
+    {
+      "id": "pix_1234567890abcdef",
+      "charge_id": "ch_1234567890abcdef",
+      "qr_code": "https://api.debita.ai/v1/pix/qr/pix_1234567890abcdef.png",
+      "qr_code_text": "00020126580014br.gov.bcb.pix0136...",
+      "expires_at": "2024-01-15T11:35:00Z",
+      "status": "pending"
+    }
+    ```
+  </Step>
+
+  <Step title="Display payment to customer">
+    Show the QR code and copy & paste option to your customer:
+
+    ```html
+    <div class="payment-container">
+      <h3>Pay with PIX</h3>
+      <img src="https://api.debita.ai/v1/pix/qr/pix_1234567890abcdef.png" alt="PIX QR Code" />
+
+      <p>Or copy and paste this code in your bank app:</p>
+      <input type="text" value="00020126580014br.gov.bcb.pix0136..." readonly />
+
+      <p>Amount: R$ 99,90</p>
+      <p>Expires in: 1 hour</p>
+    </div>
+    ```
+
+    <Tip>PIX payments are usually confirmed within seconds, but can take up to 1 hour in rare cases.</Tip>
+  </Step>
+
+  <Step title="Handle webhooks">
+    Set up a webhook endpoint to receive payment confirmations:
+
+    ```javascript Node.js Express
+    const express = require('express');
+    const app = express();
+
+    app.post('/webhook', express.raw({type: 'application/json'}), (req, res) => {
+      const event = JSON.parse(req.body);
+
+      if (event.type === 'payment.confirmed') {
+        console.log('Payment confirmed:', event.data.id);
+        // Update your database, send confirmation email, etc.
+      }
+
+      res.sendStatus(200);
+    });
+    ```
+
+    Don't forget to configure your webhook URL in the dashboard!
+  </Step>
+</Steps>
+
+## What's next?
+
+<CardGroup cols={2}>
+  <Card
+    title="Authentication"
+    icon="key"
+    href="/authentication"
+  >
+    Learn about API keys and authentication
+  </Card>
+  <Card
+    title="Payment Methods"
+    icon="credit-card"
+    href="/payment-methods"
+  >
+    Explore all available payment methods
+  </Card>
+  <Card
+    title="Webhooks"
+    icon="webhook"
+    href="/webhooks"
+  >
+    Set up real-time notifications
+  </Card>
+  <Card
+    title="API Reference"
+    icon="code"
+    href="/api-reference"
+  >
+    Full API documentation
+  </Card>
+</CardGroup>
+
+## Test Data
+
+Use these test values when developing with sandbox keys:
+
+<AccordionGroup>
+  <Accordion title="Test CPF Numbers" icon="id-card">
+    - `11144477735` - Valid CPF
+    - `00000000000` - Invalid CPF (will be rejected)
+  </Accordion>
+
+  <Accordion title="Test CNPJ Numbers" icon="building">
+    - `11222333000181` - Valid CNPJ
+    - `00000000000000` - Invalid CNPJ (will be rejected)
+  </Accordion>
+
+  <Accordion title="PIX Simulation" icon="zap">
+    In test mode, PIX payments are automatically confirmed after 10 seconds for testing purposes.
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  Never use test API keys in production! Always use `pk_live_` keys for real transactions.
+</Warning>

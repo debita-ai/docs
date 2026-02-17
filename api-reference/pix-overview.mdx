@@ -1,0 +1,190 @@
+---
+title: "PIX API Overview"
+description: "Guia completo da API PIX com tipos de cobrança, fluxos de integração e melhores práticas."
+---
+
+# PIX API Overview
+
+O PIX é o sistema de pagamentos instantâneos brasileiro que permite transferências e pagamentos 24/7. Nossa API oferece dois tipos principais de cobrança PIX, cada um adequado para diferentes cenários de uso.
+
+## 🎯 Tipos de PIX Disponíveis
+
+### PIX Dinâmico
+Cobrança com **valor fixo** e **QR Code único** que expira automaticamente.
+
+**Ideal para:**
+- E-commerce e checkout online
+- Pagamentos de produtos/serviços específicos
+- Transações com valor conhecido
+
+**Características:**
+- Valor predefinido no QR Code
+- Expiração automática (configurável)
+- QR Code de uso único
+- Identificação automática do pagamento
+
+---
+
+### PIX Estático
+QR Code **reutilizável** onde o cliente informa o valor no momento do pagamento.
+
+**Ideal para:**
+- Vendas físicas (balcão, delivery)
+- Doações e contribuições
+- Pagamentos com valores variáveis
+
+**Características:**
+- QR Code reutilizável indefinidamente
+- Cliente informa o valor
+- Valores sugeridos opcionais
+- Múltiplos pagamentos no mesmo código
+
+## 🔄 Fluxo de Integração
+
+### 1. Criar Cobrança
+```mermaid
+graph LR
+    A[Sua Aplicação] --> B[POST /charges/pix/dynamic]
+    B --> C[Debita API]
+    C --> D[QR Code + Payload]
+    D --> A
+```
+
+### 2. Apresentar ao Cliente
+```mermaid
+graph LR
+    A[QR Code Recebido] --> B[Exibir na Tela]
+    B --> C[Cliente Escaneia]
+    C --> D[Pagamento no App Bancário]
+```
+
+### 3. Confirmação via Webhook
+```mermaid
+graph LR
+    A[Pagamento Confirmado] --> B[Webhook Enviado]
+    B --> C[Sua Aplicação]
+    C --> D[Processar Pedido]
+```
+
+## 📊 Comparação Técnica
+
+| Aspecto | PIX Dinâmico | PIX Estático |
+|---------|--------------|--------------|
+| **Endpoint** | `/charges/pix/dynamic` | `/charges/pix/static` |
+| **Valor** | Obrigatório na criação | Informado pelo cliente |
+| **Expiração** | Configurável (padrão 30min) | Sem expiração |
+| **Reutilização** | Não (uso único) | Sim (infinitas vezes) |
+| **Webhook** | `charge.succeeded` | `pix_static.payment_received` |
+| **Identificação** | Automática por charge_id | Requer correlação manual |
+
+## 🛠️ Estrutura de Resposta
+
+### PIX Dinâmico Response
+```json
+{
+  "id": "chg_1a2b3c4d5e6f",
+  "status": "pending",
+  "amount": 25000,
+  "currency": "BRL",
+  "pix": {
+    "qr_code": "data:image/png;base64,iVBORw0KGgo...",
+    "payload": "00020126580014br.gov.bcb.pix...",
+    "txid": "E12345678202401011230123456789",
+    "expires_at": "2024-01-01T15:30:00-03:00"
+  }
+}
+```
+
+### PIX Estático Response
+```json
+{
+  "id": "pix_static_7h8i9j0k",
+  "type": "pix_static",
+  "status": "active",
+  "pix": {
+    "qr_code": "data:image/png;base64,iVBORw0KGgo...",
+    "payload": "00020126580014br.gov.bcb.pix...",
+    "key": "pix_static_7h8i9j0k@debita.ai"
+  },
+  "suggested_amounts": [1000, 2500, 5000, 10000]
+}
+```
+
+## 🔔 Eventos de Webhook
+
+### PIX Dinâmico
+- `charge.succeeded` - Pagamento confirmado
+- `charge.failed` - Pagamento falhou
+- `charge.expired` - Cobrança expirou sem pagamento
+
+### PIX Estático
+- `pix_static.payment_received` - Novo pagamento recebido
+- `pix_static.payment_failed` - Pagamento não processado
+
+## ⚡ Quick Start
+
+### 1. Criar PIX Dinâmico
+```bash
+curl -X POST https://api.debita.ai/v1/charges/pix/dynamic \
+  -H "Authorization: Bearer pk_sandbox_sua_chave" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 10000,
+    "description": "Pagamento teste",
+    "customer": {
+      "name": "João Silva",
+      "document": "123.456.789-09"
+    }
+  }'
+```
+
+### 2. Criar PIX Estático
+```bash
+curl -X POST https://api.debita.ai/v1/charges/pix/static \
+  -H "Authorization: Bearer pk_sandbox_sua_chave" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Pagamentos Loja ABC",
+    "suggested_amounts": [1000, 2500, 5000]
+  }'
+```
+
+## 🎨 Exibição do QR Code
+
+### Formato Base64
+```javascript
+// QR Code já vem pronto para exibição
+const qrCodeImage = charge.pix.qr_code;
+document.getElementById('qr-image').src = qrCodeImage;
+```
+
+### PIX Copy & Paste
+```javascript
+// String PIX para apps bancários
+const pixPayload = charge.pix.payload;
+navigator.clipboard.writeText(pixPayload);
+```
+
+## 🔒 Segurança e Validação
+
+- **Webhook Verification**: Sempre valide assinatura dos webhooks
+- **Idempotency**: Use `Idempotency-Key` para evitar duplicações
+- **HTTPS Only**: Todas as requisições devem usar HTTPS
+- **Rate Limits**: Respeite os limites de requisições por ambiente
+
+## 📱 Próximos Passos
+
+<CardGroup cols={2}>
+  <Card title="PIX Dinâmico" icon="bolt" href="/api-reference/pix-dynamic">
+    Documentação completa do endpoint PIX Dinâmico
+  </Card>
+  <Card title="PIX Estático" icon="qrcode" href="/api-reference/pix-static">
+    Documentação completa do endpoint PIX Estático
+  </Card>
+</CardGroup>
+
+---
+
+<Note>
+**Ambiente Sandbox**: Use `pk_sandbox_` para testes sem cobrança real. Pagamentos são simulados automaticamente após 30 segundos.
+</Note>

@@ -1,0 +1,347 @@
+---
+title: "POST /v1/charges/pix/static"
+api: "POST https://api.debita.ai/v1/charges/pix/static"
+description: "Cria um QR Code PIX reutilizável onde o cliente informa o valor. Ideal para vendas físicas, doações e situações onde o valor não é conhecido antecipadamente."
+---
+
+## Visão Geral
+
+Cria um QR Code PIX estático e reutilizável onde o cliente informa o valor no momento do pagamento. Este endpoint é ideal para:
+
+- **Vendas físicas**: Balcões, feiras, food trucks
+- **Doações**: Campanhas com valores livres
+- **Serviços**: Consultorias, gorjetas, pagamentos por hora
+- **Recorrentes**: Assinaturas onde o valor pode variar
+
+<Info>
+**QR Code Permanente**: PIX Estático não expira e pode ser usado infinitas vezes. Ideal para impressão e reutilização.
+</Info>
+
+## Parâmetros da Requisição
+
+### Headers Obrigatórios
+
+<ParamField header="Authorization" type="string" required>
+  Chave API no formato Bearer token
+  ```
+  Bearer pk_sandbox_sua_chave
+  ```
+</ParamField>
+
+<ParamField header="Content-Type" type="string">
+  Tipo de conteúdo da requisição
+  ```
+  application/json
+  ```
+</ParamField>
+
+<ParamField header="Idempotency-Key" type="string">
+  UUID único para evitar duplicação de requisições
+  ```
+  550e8400-e29b-41d4-a716-446655440000
+  ```
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="description" type="string" required>
+  Descrição que aparece no QR Code (máximo 255 caracteres)
+</ParamField>
+
+<ParamField body="merchant" type="object">
+  Dados do estabelecimento (opcional)
+
+  <Expandable title="Propriedades do merchant">
+    <ParamField body="merchant.name" type="string">
+      Nome do estabelecimento
+    </ParamField>
+    <ParamField body="merchant.city" type="string">
+      Cidade do estabelecimento
+    </ParamField>
+    <ParamField body="merchant.document" type="string">
+      CNPJ do estabelecimento
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="identifier" type="string">
+  Identificador único para rastreamento (máximo 255 caracteres)
+</ParamField>
+
+<ParamField body="suggested_amounts" type="array">
+  Lista de valores sugeridos em centavos (máximo 10 itens)
+</ParamField>
+
+<ParamField body="min_amount" type="integer">
+  Valor mínimo aceito em centavos
+</ParamField>
+
+<ParamField body="max_amount" type="integer">
+  Valor máximo aceito em centavos
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Dados adicionais em formato chave-valor
+</ParamField>
+
+## Exemplo de Requisição
+
+<RequestExample>
+
+```bash cURL
+curl -X POST https://api.debita.ai/v1/charges/pix/static \
+  -H "Authorization: Bearer pk_sandbox_sua_chave" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+    "description": "Doações para ONG Esperança",
+    "merchant": {
+      "name": "ONG Esperança",
+      "city": "São Paulo",
+      "document": "12.345.678/0001-95"
+    },
+    "identifier": "doacoes_esperanca_2024",
+    "suggested_amounts": [1000, 2500, 5000, 10000],
+    "min_amount": 500,
+    "max_amount": 50000,
+    "metadata": {
+      "categoria": "doacao",
+      "campanha": "natal_2024"
+    }
+  }'
+```
+
+```javascript Node.js
+const response = await fetch('https://api.debita.ai/v1/charges/pix/static', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer pk_sandbox_sua_chave',
+    'Content-Type': 'application/json',
+    'Idempotency-Key': crypto.randomUUID()
+  },
+  body: JSON.stringify({
+    description: 'Doações para ONG Esperança',
+    merchant: {
+      name: 'ONG Esperança',
+      city: 'São Paulo',
+      document: '12.345.678/0001-95'
+    },
+    identifier: 'doacoes_esperanca_2024',
+    suggested_amounts: [1000, 2500, 5000, 10000], // R$ 10, 25, 50, 100
+    min_amount: 500,   // R$ 5,00
+    max_amount: 50000, // R$ 500,00
+    metadata: {
+      categoria: 'doacao',
+      campanha: 'natal_2024'
+    }
+  })
+});
+
+const pixStatic = await response.json();
+console.log('PIX Estático criado:', pixStatic.id);
+console.log('QR Code:', pixStatic.pix.qr_code);
+```
+
+```python Python
+import requests
+import uuid
+
+url = 'https://api.debita.ai/v1/charges/pix/static'
+
+payload = {
+    'description': 'Doações para ONG Esperança',
+    'merchant': {
+        'name': 'ONG Esperança',
+        'city': 'São Paulo',
+        'document': '12.345.678/0001-95'
+    },
+    'identifier': 'doacoes_esperanca_2024',
+    'suggested_amounts': [1000, 2500, 5000, 10000],  # R$ 10, 25, 50, 100
+    'min_amount': 500,    # R$ 5,00
+    'max_amount': 50000,  # R$ 500,00
+    'metadata': {
+        'categoria': 'doacao',
+        'campanha': 'natal_2024'
+    }
+}
+
+headers = {
+    'Authorization': 'Bearer pk_sandbox_sua_chave',
+    'Content-Type': 'application/json',
+    'Idempotency-Key': str(uuid.uuid4())
+}
+
+response = requests.post(url, json=payload, headers=headers)
+pix_static = response.json()
+
+print(f'PIX Estático criado: {pix_static["id"]}')
+print(f'QR Code: {pix_static["pix"]["qr_code"]}')
+```
+
+</RequestExample>
+
+## Resposta
+
+<ResponseExample>
+
+```json Sucesso (201)
+{
+  "id": "pix_static_7h8i9j0k",
+  "type": "pix_static",
+  "status": "active",
+  "description": "Doações para ONG Esperança",
+  "merchant": {
+    "name": "ONG Esperança",
+    "city": "São Paulo",
+    "document": "12.345.678/0001-95"
+  },
+  "pix": {
+    "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+    "payload": "00020126580014br.gov.bcb.pix2536merchant.debita.ai/static/...",
+    "key": "pix_static_7h8i9j0k@debita.ai"
+  },
+  "identifier": "doacoes_esperanca_2024",
+  "suggested_amounts": [1000, 2500, 5000, 10000],
+  "min_amount": 500,
+  "max_amount": 50000,
+  "metadata": {
+    "categoria": "doacao",
+    "campanha": "natal_2024"
+  },
+  "created_at": "2024-01-01T10:00:00-03:00"
+}
+```
+
+```json Erro de Validação (400)
+{
+  "error": {
+    "type": "validation_error",
+    "code": "MISSING_DESCRIPTION",
+    "message": "Description is required",
+    "field": "description"
+  }
+}
+```
+
+</ResponseExample>
+
+## Campos da Resposta
+
+<ResponseField name="id" type="string">
+  ID único do PIX estático no formato `pix_static_` seguido de caracteres alfanuméricos
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Sempre "pix_static" para PIX estático
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Status do PIX estático:
+  - `active`: Ativo e funcionando
+  - `inactive`: Inativo/desabilitado
+</ResponseField>
+
+<ResponseField name="pix" type="object">
+  Dados específicos do PIX estático
+  <Expandable title="Propriedades do objeto pix">
+    <ResponseField name="qr_code" type="string">
+      Imagem do QR Code reutilizável em formato base64
+    </ResponseField>
+    <ResponseField name="payload" type="string">
+      String PIX para copy/paste no app bancário
+    </ResponseField>
+    <ResponseField name="key" type="string">
+      Chave PIX única gerada automaticamente
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="suggested_amounts" type="array">
+  Lista de valores sugeridos em centavos
+</ResponseField>
+
+## Interface de Usuário
+
+### Exemplo de Interface para PIX Estático
+
+Aqui está um exemplo de como exibir um PIX estático para seus clientes:
+
+```html
+<div class="pix-static-container">
+  <div class="qr-section">
+    <img src="{pix_static.pix.qr_code}" alt="QR Code PIX" />
+    <p>Doações para ONG Esperança</p>
+  </div>
+
+  <div class="suggested-amounts">
+    <h4>Valores Sugeridos:</h4>
+    <div class="amount-buttons">
+      <button onclick="selectAmount(1000)">R$ 10,00</button>
+      <button onclick="selectAmount(2500)">R$ 25,00</button>
+      <button onclick="selectAmount(5000)">R$ 50,00</button>
+      <button onclick="selectAmount(10000)">R$ 100,00</button>
+    </div>
+  </div>
+
+  <div class="custom-amount">
+    <h4>Ou informe o valor:</h4>
+    <input type="number" min="5" max="500" placeholder="0,00" />
+  </div>
+
+  <div class="instructions">
+    <h5>Como doar:</h5>
+    <ol>
+      <li>Escolha um valor ou digite um personalizado</li>
+      <li>Abra o app do seu banco</li>
+      <li>Escaneie o QR Code ou cole o código PIX</li>
+      <li>Confirme a doação</li>
+    </ol>
+  </div>
+</div>
+```
+
+## Casos de Uso
+
+<AccordionGroup>
+  <Accordion title="Sistema de Doações">
+    PIX Estático é perfeito para ONGs e campanhas de doação onde os valores são flexíveis:
+    - QR Code pode ser impresso em materiais
+    - Doadores escolhem o valor
+    - Rastreamento por identificador único
+  </Accordion>
+
+  <Accordion title="Vendas Físicas">
+    Ideal para estabelecimentos físicos:
+    - QR Code na mesa ou balcão
+    - Cliente informa o valor da compra
+    - Sem necessidade de gerar novo QR para cada venda
+  </Accordion>
+
+  <Accordion title="Serviços Variáveis">
+    Para prestadores de serviços:
+    - Consultores e freelancers
+    - Valores de serviço flexíveis
+    - Gorjetas e pagamentos extras
+  </Accordion>
+</AccordionGroup>
+
+## Webhooks
+
+Configure webhooks para receber notificações sobre pagamentos realizados no PIX estático:
+
+- `pix.static.payment.received` - Pagamento recebido
+- `pix.static.payment.confirmed` - Pagamento confirmado
+
+<Card title="Configurar Webhooks" icon="webhook" href="/webhooks/configuracao">
+  Aprenda a configurar webhooks para PIX estático
+</Card>
+
+## Limitações
+
+<Warning>
+**Limitações do PIX Estático:**
+- Não é possível definir valor fixo
+- Cliente deve informar o valor correto
+- Rastreamento por identificador, não por transação individual
+- Requer validação manual do valor recebido
+</Warning>

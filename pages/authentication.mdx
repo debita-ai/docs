@@ -1,0 +1,251 @@
+---
+title: "Authentication"
+description: "Learn how to authenticate with the Debita AI API"
+---
+
+## Overview
+
+The Debita AI API uses API keys for authentication. All API requests must include your API key in the `Authorization` header as a Bearer token.
+
+## API Key Types
+
+<CardGroup cols={2}>
+  <Card title="Test Keys" icon="flask">
+    **Format:** `pk_test_...`
+
+    Use for development and testing. Transactions are simulated and no real money is processed.
+  </Card>
+  <Card title="Live Keys" icon="shield-check">
+    **Format:** `pk_live_...`
+
+    Use for production. Real transactions are processed and money is transferred.
+  </Card>
+</CardGroup>
+
+## Automatic Environment Detection
+
+Our unified API automatically detects your environment based on your API key prefix:
+
+```javascript
+// Test environment - automatic sandbox mode
+const debita = require('debita-node')('pk_test_1234567890abcdef...');
+
+// Live environment - automatic production mode
+const debita = require('debita-node')('pk_live_1234567890abcdef...');
+```
+
+<Tip>
+No configuration changes needed! The API automatically adapts security settings, CORS policies, and features based on your key type.
+</Tip>
+
+## Making Authenticated Requests
+
+Include your API key in the `Authorization` header:
+
+<CodeGroup>
+```bash curl
+curl -X GET https://api.debita.ai/v1/customers \
+  -H "Authorization: Bearer pk_test_your_key_here"
+```
+
+```javascript Node.js
+const debita = require('debita-node')('pk_test_your_key_here');
+
+// The SDK automatically includes the API key in all requests
+const customers = await debita.customers.list();
+```
+
+```python Python
+import debita
+
+debita.api_key = "pk_test_your_key_here"
+
+# The SDK automatically includes the API key in all requests
+customers = debita.Customer.list()
+```
+
+```php PHP
+<?php
+require_once('vendor/autoload.php');
+
+\Debita\Debita::setApiKey('pk_test_your_key_here');
+
+// The SDK automatically includes the API key in all requests
+$customers = \Debita\Customer::all();
+```
+</CodeGroup>
+
+## API Key Management
+
+### Getting Your Keys
+
+1. Sign up for a [Debita AI account](https://dashboard.debita.ai)
+2. Navigate to **API Keys** in your dashboard
+3. Copy your test keys for development
+4. Request live keys after account verification
+
+### Key Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Never Expose Keys" icon="eye-slash">
+    - Never include API keys in client-side code
+    - Don't commit keys to version control
+    - Use environment variables for key storage
+    ```bash
+    # .env file
+    DEBITA_API_KEY=pk_test_your_key_here
+    ```
+  </Accordion>
+
+  <Accordion title="Rotate Keys Regularly" icon="rotate">
+    - Rotate API keys periodically
+    - Generate new keys before revoking old ones
+    - Update all services before revoking
+  </Accordion>
+
+  <Accordion title="Use Different Keys per Environment" icon="layers">
+    ```bash
+    # Development
+    DEBITA_API_KEY=pk_test_dev_key...
+
+    # Staging
+    DEBITA_API_KEY=pk_test_staging_key...
+
+    # Production
+    DEBITA_API_KEY=pk_live_production_key...
+    ```
+  </Accordion>
+
+  <Accordion title="Monitor Key Usage" icon="chart-line">
+    - Monitor API key usage in the dashboard
+    - Set up alerts for unusual activity
+    - Review access logs regularly
+  </Accordion>
+</AccordionGroup>
+
+## Rate Limiting
+
+API rate limits vary by key type and account tier:
+
+<CardGroup cols={3}>
+  <Card title="Sandbox Keys" icon="flask">
+    **50,000 requests/key**
+
+    High limits for development with test data
+  </Card>
+  <Card title="Test Keys" icon="vial">
+    **10,000 requests/key**
+
+    Real data testing and staging environment
+  </Card>
+  <Card title="Live Keys" icon="rocket">
+    **1,000 requests/key**
+
+    Production environment with real transactions
+  </Card>
+</CardGroup>
+
+### Rate Limit Headers
+
+Every API response includes rate limit information:
+
+```http
+HTTP/1.1 200 OK
+X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 999
+X-RateLimit-Reset: 1640995200
+```
+
+### Handling Rate Limits
+
+When you exceed rate limits, you'll receive a `429 Too Many Requests` response:
+
+```json
+{
+  "error": {
+    "type": "rate_limit_exceeded",
+    "message": "Too many requests. Try again in 60 seconds.",
+    "retry_after": 60
+  }
+}
+```
+
+<CodeGroup>
+```javascript Node.js
+async function makeRequestWithRetry(requestFn, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await requestFn();
+    } catch (error) {
+      if (error.type === 'rate_limit_exceeded' && i < maxRetries - 1) {
+        const delay = error.retry_after * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+```
+
+```python Python
+import time
+import debita
+
+def make_request_with_retry(request_fn, max_retries=3):
+    for i in range(max_retries):
+        try:
+            return request_fn()
+        except debita.error.RateLimitError as e:
+            if i < max_retries - 1:
+                time.sleep(e.retry_after)
+                continue
+            raise
+```
+</CodeGroup>
+
+## CORS and Security
+
+### Test Environment
+- Permissive CORS for development
+- Debug headers included
+- Extended error messages
+
+### Live Environment
+- Strict CORS policies
+- Additional security headers
+- Minimal error exposure
+
+## Webhook Authentication
+
+Webhooks use a different authentication method with signatures. See the [Webhook Security](/webhooks/security) page for details.
+
+## Account Verification
+
+To get live API keys, you need to complete account verification:
+
+<Steps>
+  <Step title="Business Information">
+    Provide your business details and registration documents.
+  </Step>
+  <Step title="Bank Account">
+    Connect your business bank account for settlements.
+  </Step>
+  <Step title="KYC/KYB">
+    Complete identity verification for individuals or business verification for companies.
+  </Step>
+  <Step title="Review Process">
+    Our team will review your application (typically 1-2 business days).
+  </Step>
+</Steps>
+
+## Need Help?
+
+<CardGroup cols={2}>
+  <Card title="Support" icon="life-ring" href="/resources/support">
+    Contact our support team for help with authentication issues
+  </Card>
+  <Card title="Status Page" icon="signal" href="https://status.debita.ai">
+    Check API status and any ongoing issues
+  </Card>
+</CardGroup>

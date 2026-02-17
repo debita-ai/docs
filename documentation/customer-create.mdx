@@ -1,0 +1,467 @@
+---
+title: "POST /v1/customers"
+api: "POST https://api.debita.ai/v1/customers"
+description: "Cria um novo cliente no sistema para uso em cobranças futuras e gerenciamento de relacionamento."
+---
+
+## Visão Geral
+
+Cria um novo cliente no sistema que pode ser reutilizado em múltiplas cobranças. O cliente armazena informações pessoais, de contato e endereço, facilitando:
+
+- **Reutilização**: Use o customer_id em vez de repetir dados
+- **Histórico**: Consulte todas as cobranças de um cliente
+- **Validação**: CPF/CNPJ são validados automaticamente
+- **Padronização**: Normalize dados de contato e endereço
+
+<Info>
+**ID Único por Documento**: Apenas um cliente por CPF/CNPJ. Tentativas de criar duplicatas retornarão o cliente existente.
+</Info>
+
+## Parâmetros da Requisição
+
+### Headers Obrigatórios
+
+<ParamField header="Authorization" type="string" required>
+  Chave API no formato Bearer token
+  ```
+  Bearer pk_sandbox_sua_chave
+  ```
+</ParamField>
+
+<ParamField header="Content-Type" type="string">
+  Tipo de conteúdo da requisição
+  ```
+  application/json
+  ```
+</ParamField>
+
+<ParamField header="Idempotency-Key" type="string">
+  UUID único para evitar duplicação de requisições
+  ```
+  550e8400-e29b-41d4-a716-446655440000
+  ```
+</ParamField>
+
+### Body Parameters
+
+<ParamField body="name" type="string" required>
+  Nome completo do cliente (pessoa física) ou razão social (pessoa jurídica)
+</ParamField>
+
+<ParamField body="document" type="string" required>
+  CPF (11 dígitos) ou CNPJ (14 dígitos) - apenas números ou formatado
+</ParamField>
+
+<ParamField body="email" type="string">
+  Endereço de e-mail válido do cliente
+</ParamField>
+
+<ParamField body="phone" type="string">
+  Telefone com código do país (+5511999999999)
+</ParamField>
+
+<ParamField body="type" type="string">
+  Tipo de cliente (opcional, inferido automaticamente):
+  - `individual`: Pessoa física (CPF)
+  - `business`: Pessoa jurídica (CNPJ)
+</ParamField>
+
+<ParamField body="address" type="object">
+  Endereço completo do cliente
+
+  <Expandable title="Propriedades do address">
+    <ParamField body="address.street" type="string" required>
+      Logradouro (rua, avenida, etc.)
+    </ParamField>
+    <ParamField body="address.number" type="string" required>
+      Número do imóvel
+    </ParamField>
+    <ParamField body="address.complement" type="string">
+      Complemento (apartamento, sala, etc.)
+    </ParamField>
+    <ParamField body="address.neighborhood" type="string" required>
+      Bairro
+    </ParamField>
+    <ParamField body="address.city" type="string" required>
+      Cidade
+    </ParamField>
+    <ParamField body="address.state" type="string" required>
+      Estado (2 letras maiúsculas: SP, RJ, etc.)
+    </ParamField>
+    <ParamField body="address.zipcode" type="string" required>
+      CEP (8 dígitos, com ou sem formatação)
+    </ParamField>
+    <ParamField body="address.country" type="string">
+      País (padrão: BR)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="birth_date" type="string">
+  Data de nascimento (pessoa física) no formato YYYY-MM-DD
+</ParamField>
+
+<ParamField body="company_info" type="object">
+  Informações adicionais para pessoa jurídica
+
+  <Expandable title="Propriedades do company_info">
+    <ParamField body="company_info.trading_name" type="string">
+      Nome fantasia
+    </ParamField>
+    <ParamField body="company_info.legal_representative" type="string">
+      Nome do representante legal
+    </ParamField>
+    <ParamField body="company_info.legal_representative_document" type="string">
+      CPF do representante legal
+    </ParamField>
+    <ParamField body="company_info.sector" type="string">
+      Setor de atuação
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Dados adicionais em formato chave-valor
+</ParamField>
+
+## Exemplo de Requisição
+
+<RequestExample>
+
+```bash cURL - Pessoa Física
+curl -X POST https://api.debita.ai/v1/customers \
+  -H "Authorization: Bearer pk_sandbox_sua_chave" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+    "name": "Maria Silva Santos",
+    "document": "123.456.789-09",
+    "email": "maria.silva@email.com",
+    "phone": "+5511987654321",
+    "birth_date": "1985-03-15",
+    "address": {
+      "street": "Rua das Flores",
+      "number": "123",
+      "complement": "Apto 45",
+      "neighborhood": "Centro",
+      "city": "São Paulo",
+      "state": "SP",
+      "zipcode": "01234-567"
+    },
+    "metadata": {
+      "fonte": "site",
+      "categoria": "premium"
+    }
+  }'
+```
+
+```bash cURL - Pessoa Jurídica
+curl -X POST https://api.debita.ai/v1/customers \
+  -H "Authorization: Bearer pk_sandbox_sua_chave" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{
+    "name": "Tech Solutions Ltda",
+    "document": "12.345.678/0001-90",
+    "email": "contato@techsolutions.com",
+    "phone": "+5511912345678",
+    "type": "business",
+    "address": {
+      "street": "Av. Paulista",
+      "number": "1000",
+      "complement": "Sala 1001",
+      "neighborhood": "Bela Vista",
+      "city": "São Paulo",
+      "state": "SP",
+      "zipcode": "01310-100"
+    },
+    "company_info": {
+      "trading_name": "TechSol",
+      "legal_representative": "João Silva",
+      "legal_representative_document": "987.654.321-00",
+      "sector": "Tecnologia"
+    }
+  }'
+```
+
+```javascript Node.js
+const response = await fetch('https://api.debita.ai/v1/customers', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer pk_sandbox_sua_chave',
+    'Content-Type': 'application/json',
+    'Idempotency-Key': crypto.randomUUID()
+  },
+  body: JSON.stringify({
+    name: 'Maria Silva Santos',
+    document: '12345678909', // Apenas números
+    email: 'maria.silva@email.com',
+    phone: '+5511987654321',
+    birth_date: '1985-03-15',
+    address: {
+      street: 'Rua das Flores',
+      number: '123',
+      complement: 'Apto 45',
+      neighborhood: 'Centro',
+      city: 'São Paulo',
+      state: 'SP',
+      zipcode: '01234567'
+    },
+    metadata: {
+      fonte: 'app',
+      segmento: 'educacao'
+    }
+  })
+});
+
+const customer = await response.json();
+console.log('Cliente criado:', customer.id);
+console.log('Documento:', customer.document);
+```
+
+```python Python
+import requests
+import uuid
+
+url = 'https://api.debita.ai/v1/customers'
+
+payload = {
+    'name': 'Maria Silva Santos',
+    'document': '12345678909',  # Apenas números
+    'email': 'maria.silva@email.com',
+    'phone': '+5511987654321',
+    'birth_date': '1985-03-15',
+    'address': {
+        'street': 'Rua das Flores',
+        'number': '123',
+        'complement': 'Apto 45',
+        'neighborhood': 'Centro',
+        'city': 'São Paulo',
+        'state': 'SP',
+        'zipcode': '01234567'
+    },
+    'metadata': {
+        'fonte': 'api',
+        'segmento': 'varejo'
+    }
+}
+
+headers = {
+    'Authorization': 'Bearer pk_sandbox_sua_chave',
+    'Content-Type': 'application/json',
+    'Idempotency-Key': str(uuid.uuid4())
+}
+
+response = requests.post(url, json=payload, headers=headers)
+customer = response.json()
+
+print(f'Cliente criado: {customer["id"]}')
+print(f'Tipo: {customer["type"]}')
+```
+
+</RequestExample>
+
+## Resposta
+
+<ResponseExample>
+
+```json Pessoa Física - Sucesso (201)
+{
+  "id": "cust_abc123def456",
+  "name": "Maria Silva Santos",
+  "document": "123.456.789-09",
+  "document_type": "cpf",
+  "type": "individual",
+  "email": "maria.silva@email.com",
+  "phone": "+5511987654321",
+  "birth_date": "1985-03-15",
+  "address": {
+    "street": "Rua das Flores",
+    "number": "123",
+    "complement": "Apto 45",
+    "neighborhood": "Centro",
+    "city": "São Paulo",
+    "state": "SP",
+    "zipcode": "01234-567",
+    "country": "BR"
+  },
+  "verification": {
+    "document_valid": true,
+    "email_verified": false,
+    "phone_verified": false
+  },
+  "metadata": {
+    "fonte": "site",
+    "categoria": "premium"
+  },
+  "created_at": "2024-01-01T10:00:00-03:00",
+  "updated_at": "2024-01-01T10:00:00-03:00"
+}
+```
+
+```json Pessoa Jurídica - Sucesso (201)
+{
+  "id": "cust_xyz789ghi012",
+  "name": "Tech Solutions Ltda",
+  "document": "12.345.678/0001-90",
+  "document_type": "cnpj",
+  "type": "business",
+  "email": "contato@techsolutions.com",
+  "phone": "+5511912345678",
+  "address": {
+    "street": "Av. Paulista",
+    "number": "1000",
+    "complement": "Sala 1001",
+    "neighborhood": "Bela Vista",
+    "city": "São Paulo",
+    "state": "SP",
+    "zipcode": "01310-100",
+    "country": "BR"
+  },
+  "company_info": {
+    "trading_name": "TechSol",
+    "legal_representative": "João Silva",
+    "legal_representative_document": "987.654.321-00",
+    "sector": "Tecnologia"
+  },
+  "verification": {
+    "document_valid": true,
+    "email_verified": false,
+    "phone_verified": false
+  },
+  "created_at": "2024-01-01T10:30:00-03:00",
+  "updated_at": "2024-01-01T10:30:00-03:00"
+}
+```
+
+```json Cliente Já Existe (200)
+{
+  "id": "cust_existing123",
+  "name": "Maria Silva Santos",
+  "document": "123.456.789-09",
+  "document_type": "cpf",
+  "type": "individual",
+  "email": "maria.silva@email.com",
+  "phone": "+5511987654321",
+  "verification": {
+    "document_valid": true,
+    "email_verified": true,
+    "phone_verified": false
+  },
+  "created_at": "2023-12-15T14:20:00-03:00",
+  "updated_at": "2024-01-01T10:00:00-03:00"
+}
+```
+
+```json Erro de Validação (400)
+{
+  "error": {
+    "type": "validation_error",
+    "code": "INVALID_DOCUMENT",
+    "message": "Invalid CPF format or checksum",
+    "field": "document",
+    "details": {
+      "received": "123.456.789-00",
+      "expected_format": "11 digits with valid checksum"
+    }
+  }
+}
+```
+
+</ResponseExample>
+
+## Campos da Resposta
+
+<ResponseField name="id" type="string">
+  ID único do cliente no formato `cust_` seguido de caracteres alfanuméricos
+</ResponseField>
+
+<ResponseField name="document_type" type="string">
+  Tipo de documento identificado automaticamente:
+  - `cpf`: Pessoa física
+  - `cnpj`: Pessoa jurídica
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Tipo de cliente:
+  - `individual`: Pessoa física
+  - `business`: Pessoa jurídica
+</ResponseField>
+
+<ResponseField name="verification" type="object">
+  Status de verificação dos dados do cliente
+  <Expandable title="Propriedades do verification">
+    <ResponseField name="document_valid" type="boolean">
+      Se o documento passou na validação de checksum
+    </ResponseField>
+    <ResponseField name="email_verified" type="boolean">
+      Se o e-mail foi verificado via link
+    </ResponseField>
+    <ResponseField name="phone_verified" type="boolean">
+      Se o telefone foi verificado via SMS
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="company_info" type="object">
+  Informações empresariais (apenas para pessoa jurídica)
+</ResponseField>
+
+## Validações Automáticas
+
+### Documento (CPF/CNPJ)
+- **Formato**: Aceita com ou sem formatação
+- **Checksum**: Validação matemática obrigatória
+- **Unicidade**: Um cliente por documento
+
+### E-mail
+- **Formato**: Validação RFC 5322
+- **Domínio**: Verificação de DNS (opcional)
+
+### CEP
+- **Formato**: 8 dígitos obrigatórios
+- **Validação**: Consulta aos Correios (quando possível)
+
+### Telefone
+- **Formato internacional**: Obrigatório código do país
+- **Validação**: Formato brasileiro (+55XXYYYYYYYYY)
+
+## Códigos de Erro
+
+<ResponseField name="400" type="error">
+  **Bad Request** - Dados de entrada inválidos
+  - `INVALID_DOCUMENT`: CPF/CNPJ inválido
+  - `INVALID_EMAIL`: E-mail em formato inválido
+  - `INVALID_PHONE`: Telefone em formato inválido
+  - `INVALID_ZIPCODE`: CEP inválido
+</ResponseField>
+
+<ResponseField name="401" type="error">
+  **Unauthorized** - Chave API inválida ou ausente
+</ResponseField>
+
+<ResponseField name="422" type="error">
+  **Unprocessable Entity** - Dados válidos mas não processáveis
+</ResponseField>
+
+## Uso em Cobranças
+
+Após criar um cliente, use o `customer_id` em cobranças:
+
+```json
+{
+  "amount": 10000,
+  "description": "Produto ABC",
+  "customer_id": "cust_abc123def456"
+}
+```
+
+Isso evita repetir dados e mantém histórico centralizado.
+
+<Card title="Listar Clientes" icon="users" href="/api-reference/customer-list">
+  Consulte todos os clientes cadastrados
+</Card>
+
+<Card title="Atualizar Cliente" icon="pencil" href="/api-reference/customer-update">
+  Atualize dados de um cliente existente
+</Card>
