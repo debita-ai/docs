@@ -41,13 +41,6 @@
       "href": "https://dashboard.debita.ai"
     }
   },
-  "tabs": [
-    {
-      "name": "API Reference",
-      "url": "api-reference",
-      "icon": "square-terminal"
-    }
-  ],
   "navigation": [
     {
       "group": "Documentação",
@@ -104,6 +97,70 @@
       "group": "Merchant",
       "pages": [
         "documentation/merchant-info"
+      ]
+    }
+  ],
+  "anchors": [
+    {
+      "name": "API Reference",
+      "icon": "square-terminal",
+      "url": "api-reference"
+    }
+  ],
+  "api-reference": [
+    {
+      "group": "Overview",
+      "pages": [
+        "api-reference/introduction",
+        "api-reference/visao-geral"
+      ]
+    },
+    {
+      "group": "PIX",
+      "pages": [
+        "api-reference/pix-overview",
+        "api-reference/pix-dynamic",
+        "api-reference/pix-static",
+        "api-reference/pix-simulate"
+      ]
+    },
+    {
+      "group": "Boleto",
+      "pages": [
+        "api-reference/boleto-create",
+        "api-reference/boleto-download"
+      ]
+    },
+    {
+      "group": "Clientes",
+      "pages": [
+        "api-reference/customer-create",
+        "api-reference/customer-list"
+      ]
+    },
+    {
+      "group": "Cobranças",
+      "pages": [
+        "api-reference/charge-create",
+        "api-reference/charge-status"
+      ]
+    },
+    {
+      "group": "Cupom",
+      "pages": [
+        "api-reference/coupon-create"
+      ]
+    },
+    {
+      "group": "Saque",
+      "pages": [
+        "api-reference/withdrawal-create"
+      ]
+    },
+    {
+      "group": "Merchant",
+      "pages": [
+        "api-reference/merchant-info"
       ]
     }
   ],
